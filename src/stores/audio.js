@@ -169,7 +169,7 @@ export const useAudioStore = defineStore('audio', () => {
                         if (envelopeInfo) {
                             const env = envelopeInfo.node
                             node.gain.cancelScheduledValues(currentTime)
-                            node.gain.setTargetAtTime(0, currentTime + .2, env.release.constant || .1)
+                            node.gain.setTargetAtTime(env.release.value, currentTime + env.release.duration, env.release.constant || .1)
                         }
                     }
                 })
