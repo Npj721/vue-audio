@@ -28,7 +28,7 @@ const constructSimpleSynth = () => {
         attack: { value: 0.7, duration: .025},
         decay: { value: 0.5, duration: .25},
         sustain: { value: 0.45, duration: .5},
-        release: { value: 0.0000001, duration: 2, constant: .5},
+        release: { value: 0.0000001, duration: .25, constant: .5},
     })
 
     storeAudio.connectNodes(0, 3)
