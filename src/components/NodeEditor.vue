@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAudioStore } from '../stores/audio'
 
 const storeAudio = useAudioStore()
@@ -9,6 +9,8 @@ const draggingNode = ref(null)
 const connectingFrom = ref(null)
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
+const mousePos = ref({ x: 0, y: 0 })
+const activeNodeId = ref(null)
 
 const availableNodes = [
   { type: 'osc', label: 'Oscillateur', params: { type: 'sawtooth', detune: 0 } },
@@ -34,8 +36,8 @@ function handleDrop(event) {
   if (!draggingNode.value) return
   
   const rect = editorContainer.value.getBoundingClientRect()
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+  const x = event.clientX - rect.left - 100 // Centrer le nœud sur le curseur
+  const y = event.clientY - rect.top - 30   // Centrer le nœud sur le curseur
   
   if (draggingNode.value.special) {
     if (!nodes.value.some(n => n.type === 'destination')) {
@@ -62,9 +64,14 @@ function handleDrop(event) {
 }
 
 function startNodeDrag(event, node) {
-  event.stopPropagation()
+  if (event.target.classList.contains('port')) return
+  
   isDragging.value = true
-  const rect = event.target.getBoundingClientRect()
+  activeNodeId.value = node.id
+  
+  const nodeElement = event.target.closest('.node')
+  const rect = nodeElement.getBoundingClientRect()
+  
   dragOffset.value = {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top
@@ -72,14 +79,24 @@ function startNodeDrag(event, node) {
 }
 
 function handleNodeDrag(event) {
-  if (!isDragging.value) return
+  if (!isDragging.value) {
+    if (connectingFrom.value) {
+      const rect = editorContainer.value.getBoundingClientRect()
+      mousePos.value = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      }
+    }
+    return
+  }
+  
   event.preventDefault()
   
   const rect = editorContainer.value.getBoundingClientRect()
   const x = event.clientX - rect.left - dragOffset.value.x
   const y = event.clientY - rect.top - dragOffset.value.y
   
-  const node = nodes.value.find(n => n.id === event.target.dataset.nodeId)
+  const node = nodes.value.find(n => n.id === activeNodeId.value)
   if (node) {
     node.x = Math.max(0, Math.min(rect.width - 200, x))
     node.y = Math.max(0, Math.min(rect.height - 100, y))
@@ -88,14 +105,25 @@ function handleNodeDrag(event) {
 
 function stopNodeDrag() {
   isDragging.value = false
+  activeNodeId.value = null
 }
 
-function startConnecting(node) {
+function startConnecting(node, event) {
+  event.stopPropagation()
   connectingFrom.value = node
+  const rect = editorContainer.value.getBoundingClientRect()
+  mousePos.value = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  }
 }
 
-function finishConnecting(targetNode) {
-  if (!connectingFrom.value || connectingFrom.value === targetNode) return
+function finishConnecting(targetNode, event) {
+  event.stopPropagation()
+  if (!connectingFrom.value || connectingFrom.value === targetNode) {
+    connectingFrom.value = null
+    return
+  }
   
   const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id)
   
@@ -114,13 +142,33 @@ function finishConnecting(targetNode) {
 }
 
 function getConnectionPath(fromNode, toNode) {
-  const startX = fromNode.x + 100
-  const startY = fromNode.y + 25
+  const startX = fromNode.x + 200
+  const startY = fromNode.y + 40
   const endX = toNode.x
-  const endY = toNode.y + 25
-  const controlX = (startX + endX) / 2
+  const endY = toNode.y + 40
   
-  return `M ${startX} ${startY} C ${controlX} ${startY}, ${controlX} ${endY}, ${endX} ${endY}`
+  const dx = Math.abs(endX - startX) * 0.5
+  
+  return `M ${startX} ${startY} 
+          C ${startX + dx} ${startY}, 
+            ${endX - dx} ${endY}, 
+            ${endX} ${endY}`
+}
+
+function getTempConnectionPath() {
+  if (!connectingFrom.value) return ''
+  
+  const startX = connectingFrom.value.x + 200
+  const startY = connectingFrom.value.y + 40
+  const endX = mousePos.value.x
+  const endY = mousePos.value.y
+  
+  const dx = Math.abs(endX - startX) * 0.5
+  
+  return `M ${startX} ${startY} 
+          C ${startX + dx} ${startY}, 
+            ${endX - dx} ${endY}, 
+            ${endX} ${endY}`
 }
 
 function getAllConnections() {
@@ -135,6 +183,11 @@ function getAllConnections() {
 onMounted(() => {
   window.addEventListener('mousemove', handleNodeDrag)
   window.addEventListener('mouseup', stopNodeDrag)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', handleNodeDrag)
+  window.removeEventListener('mouseup', stopNodeDrag)
 })
 </script>
 
@@ -165,27 +218,39 @@ onMounted(() => {
           :d="getConnectionPath(connection.from, connection.to)"
           class="connection-path"
         />
+        <path
+          v-if="connectingFrom"
+          :d="getTempConnectionPath()"
+          class="connection-path connection-temp"
+        />
       </svg>
       
       <div
         v-for="node in nodes"
         :key="node.id"
         class="node"
-        :style="{ left: node.x + 'px', top: node.y + 'px' }"
+        :class="{
+          'node-connecting': connectingFrom === node,
+          'node-active': node.id === activeNodeId
+        }"
+        :style="{
+          left: node.x + 'px',
+          top: node.y + 'px',
+          cursor: isDragging && node.id === activeNodeId ? 'grabbing' : 'grab'
+        }"
         :data-node-id="node.id"
         @mousedown="(e) => startNodeDrag(e, node)"
       >
         <div class="node-header">{{ node.label }}</div>
         <div class="node-ports">
           <div
-            class="port port-out"
-            @mousedown.stop="startConnecting(node)"
-            @mouseup.stop="finishConnecting(node)"
-          ></div>
-          <div
             v-if="node.type !== 'destination'"
             class="port port-in"
-            @mouseup.stop="finishConnecting(node)"
+            @mouseup="(e) => finishConnecting(node, e)"
+          ></div>
+          <div
+            class="port port-out"
+            @mousedown="(e) => startConnecting(node, e)"
           ></div>
         </div>
       </div>
@@ -195,6 +260,7 @@ onMounted(() => {
 
 <style scoped>
 .editor {
+  color:white;
   display: flex;
   gap: 20px;
   height: 800px;
@@ -217,6 +283,11 @@ onMounted(() => {
   border-radius: 4px;
   cursor: move;
   user-select: none;
+  transition: background-color 0.2s;
+}
+
+.node-template:hover {
+  background: #4a4a4a;
 }
 
 .editor-container {
@@ -233,12 +304,19 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 1;
 }
 
 .connection-path {
   fill: none;
   stroke: #646cff;
   stroke-width: 2px;
+  transition: stroke-width 0.2s;
+}
+
+.connection-temp {
+  stroke: #646cff80;
+  stroke-dasharray: 5,5;
 }
 
 .node {
@@ -246,21 +324,40 @@ onMounted(() => {
   width: 200px;
   background: #3a3a3a;
   border-radius: 4px;
-  cursor: move;
   user-select: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 2;
+}
+
+.node-active {
+  z-index: 3;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.node-connecting {
+  box-shadow: 0 0 0 2px #646cff;
 }
 
 .node-header {
   padding: 10px;
   background: #4a4a4a;
   border-radius: 4px 4px 0 0;
+  font-weight: 500;
 }
 
 .node-ports {
-  padding: 10px;
+  padding: 15px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  height: 30px;
 }
 
 .port {
@@ -269,12 +366,29 @@ onMounted(() => {
   background: #646cff;
   border-radius: 50%;
   cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  position: relative;
 }
 
 .port:hover {
   background: #535bf2;
   transform: scale(1.2);
-  transition: all 0.2s ease;
+}
+
+.port::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.port:hover::before {
+  border-color: #535bf2;
 }
 
 .port-in {
