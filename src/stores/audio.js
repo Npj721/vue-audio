@@ -109,7 +109,7 @@ export const useAudioStore = defineStore('audio', () => {
             const currentTime = _audioContext.value.currentTime + delay
             const audioNodes = new Map()
 
-            
+            // Create all nodes first
             _nodes.value.forEach(nodeInfo => {
                 const node = createAudioNode(nodeInfo)
                 audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
@@ -148,33 +148,45 @@ export const useAudioStore = defineStore('audio', () => {
                 }
             })
 
-            playingNodes.value = audioNodes
+            // Add the new nodes to the playing nodes with their frequency
+            if (!playingNodes.value[frequency]) {
+                playingNodes.value[frequency] = []
+            }
+            playingNodes.value[frequency].push(audioNodes)
         }
     }
   
-    function release(delay = 0) {
-        if(_audioContext.value !== null && playingNodes.value.size > 0) {
+    function release(delay = 0, frequency) {
+        if(_audioContext.value !== null && playingNodes.value[frequency]) {
             const currentTime = _audioContext.value.currentTime + delay
             
-            playingNodes.value.forEach(({ node, info }) => {
-                if (info.type === 'gain' && info.envelope) {
-                    const envelopeInfo = playingNodes.value.get(info.envelope)
-                    if (envelopeInfo) {
-                        const env = envelopeInfo.node
-                        node.gain.cancelScheduledValues(currentTime)
-                        node.gain.setTargetAtTime(0, currentTime + .2, env.release.constant || .1)
-                    }
-                }
-            })
-
-            // Clean up nodes after release
-            setTimeout(() => {
-                playingNodes.value.forEach(({ node, info }) => {
-                    if (info.type === 'osc') {
-                        node.stop()
+            // Get all nodes for this frequency
+            const frequencyNodes = playingNodes.value[frequency]
+            frequencyNodes.forEach(audioNodes => {
+                audioNodes.forEach(({ node, info }) => {
+                    if (info.type === 'gain' && info.envelope) {
+                        const envelopeInfo = audioNodes.get(info.envelope)
+                        if (envelopeInfo) {
+                            const env = envelopeInfo.node
+                            node.gain.cancelScheduledValues(currentTime)
+                            node.gain.setTargetAtTime(0, currentTime + .2, env.release.constant || .1)
+                        }
                     }
                 })
-                playingNodes.value = new Map()
+
+                // Clean up nodes after release
+                setTimeout(() => {
+                    audioNodes.forEach(({ node, info }) => {
+                        if (info.type === 'osc') {
+                            node.stop()
+                        }
+                    })
+                }, (delay + 2) * 1000)
+            })
+
+            // Remove the frequency entry after cleanup
+            setTimeout(() => {
+                delete playingNodes.value[frequency]
             }, (delay + 2) * 1000)
         }
     }

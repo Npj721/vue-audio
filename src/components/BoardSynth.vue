@@ -28,7 +28,7 @@ const constructSimpleSynth = () => {
         attack: { value: 0.7, duration: .025},
         decay: { value: 0.5, duration: .25},
         sustain: { value: 0.45, duration: .5},
-        release: { value: 0.0000001, duration: .25, constant: .5},
+        release: { value: 0, duration: .25, constant: .1},
     })
 
     storeAudio.connectNodes(0, 3)
@@ -51,8 +51,9 @@ function handleKeyDown(event) {
 
 function handleKeyUp(event) {
   console.log("Touche relâchée:", event.key);
+  if(typeof keysKeyboard[event.key] === 'undefined') return
   keysPressed.value = keysPressed.value.filter(key => key !== event.key)
-  storeAudio.release()
+  storeAudio.release(0, keysKeyboard[event.key])
 }
 
 onMounted(() => {
@@ -85,6 +86,7 @@ onUnmounted(() => {
         {{ node.id }}<br>
         {{ node.type }}<br>
         {{ node.param }}<br>
+        {{ node }}
       </div>
     </div>
   </div>
