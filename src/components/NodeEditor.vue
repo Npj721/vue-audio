@@ -1,3 +1,98 @@
+<template>
+  <div class="editor">
+    <div class="palette">
+      <div
+        v-for="node in availableNodes"
+        :key="node.type"
+        class="node-template"
+        draggable="true"
+        @dragstart="(e) => startDrag(e, node.type)"
+      >
+        {{ node.label }}
+      </div>
+      
+      <div class="synth-actions">
+        <button 
+          v-if="nodes.length > 0"
+          class="action-button save-button"
+          @click="saveConfiguration"
+        >
+          Save Configuration
+        </button>
+
+        <div v-if="storeAudio.synthConfigurations.length > 0" class="load-section">
+          <h3>Load Configuration</h3>
+          <div 
+            v-for="config in storeAudio.synthConfigurations" 
+            :key="config.id"
+            class="synth-config-item"
+          >
+            <span>{{ config.name }}</span>
+            <button 
+              class="action-button load-button"
+              @click="loadConfiguration(config.id)"
+            >
+              Load
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div
+      ref="editorContainer"
+      class="editor-container"
+      @dragover.prevent
+      @drop="handleDrop"
+    >
+      <svg class="connections">
+        <path
+          v-for="connection in getAllConnections()"
+          :key="`${connection.from.id}-${connection.to.id}`"
+          :d="getConnectionPath(connection.from, connection.to)"
+          class="connection-path"
+        />
+        <path
+          v-if="connectingFrom"
+          :d="getTempConnectionPath()"
+          class="connection-path connection-temp"
+        />
+      </svg>
+      
+      <div
+        v-for="node in nodes"
+        :key="node.id"
+        class="node"
+        :class="{
+          'node-connecting': connectingFrom === node,
+          'node-active': node.id === activeNodeId
+        }"
+        :style="{
+          left: node.x + 'px',
+          top: node.y + 'px',
+          cursor: isDragging && node.id === activeNodeId ? 'grabbing' : 'grab'
+        }"
+        :data-node-id="node.id"
+        @mousedown="(e) => startNodeDrag(e, node)"
+      >
+        <div class="node-header">{{ node.label }}</div>
+        <div class="node-ports">
+          <div
+            v-if="node.type !== 'osc'"
+            class="port port-in"
+            @mouseup="(e) => finishConnecting(node, e)"
+          ></div>
+          <div
+            v-if="node.type !== 'destination'"
+            class="port port-out"
+            @mousedown="(e) => startConnecting(node, e)"
+          ></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useAudioStore } from '../stores/audio'
@@ -131,7 +226,6 @@ function finishConnecting(targetNode, event) {
   const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id)
   
   if (targetNode.type === 'destination') {
-    // Allow any node type to connect to destination
     storeAudio.connectToDestination(sourceIndex)
     connectingFrom.value.connections.push('destination')
   } else if (targetNode.type === 'adsr' && connectingFrom.value.type === 'gain') {
@@ -149,12 +243,11 @@ function finishConnecting(targetNode, event) {
 
 function getConnectionPath(fromNode, toNode) {
   const fromRect = editorContainer.value.getBoundingClientRect()
-  const startX = fromNode.x + 200 // Right side of source node
-  const startY = fromNode.y + 40  // Middle of source node
-  const endX = toNode.x          // Left side of target node
-  const endY = toNode.y + 40     // Middle of target node
+  const startX = fromNode.x + 200
+  const startY = fromNode.y + 40
+  const endX = toNode.x
+  const endY = toNode.y + 40
   
-  // Calculate control points for the curve
   const distance = Math.abs(endX - startX)
   const controlPoint1X = startX + distance * 0.5
   const controlPoint2X = endX - distance * 0.5
@@ -209,7 +302,7 @@ async function saveConfiguration() {
   })
 
   if (name) {
-    storeAudio.saveSynthConfiguration(name)
+    await storeAudio.saveSynthConfiguration(name)
     storeAudio.clearCurrentConfiguration()
     nodes.value = []
     
@@ -228,6 +321,53 @@ async function saveConfiguration() {
   }
 }
 
+function loadConfiguration(configId) {
+  if (nodes.value.length > 0) {
+    Swal.fire({
+      title: 'Load Configuration',
+      text: 'Loading a new configuration will clear your current work. Are you sure?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, load it',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        performLoad(configId)
+      }
+    })
+  } else {
+    performLoad(configId)
+  }
+}
+
+function performLoad(configId) {
+  if (storeAudio.loadSynthConfiguration(configId)) {
+    nodes.value = storeAudio.nodes.map(node => ({
+      ...node,
+      label: availableNodes.find(n => n.type === node.type)?.label || node.type,
+      x: Math.random() * (editorContainer.value.clientWidth - 300),
+      y: Math.random() * (editorContainer.value.clientHeight - 150)
+    }))
+
+    if (!nodes.value.some(n => n.type === 'destination')) {
+      nodes.value.push({
+        ...availableNodes.find(n => n.type === 'destination'),
+        id: 'destination',
+        x: editorContainer.value.clientWidth - 250,
+        y: editorContainer.value.clientHeight / 2 - 50,
+        connections: []
+      })
+    }
+
+    Swal.fire({
+      title: 'Configuration Loaded!',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    })
+  }
+}
+
 onMounted(() => {
   window.addEventListener('mousemove', handleNodeDrag)
   window.addEventListener('mouseup', stopNodeDrag)
@@ -238,82 +378,6 @@ onUnmounted(() => {
   window.removeEventListener('mouseup', stopNodeDrag)
 })
 </script>
-
-<template>
-  <div class="editor">
-    <div class="palette">
-      <div
-        v-for="node in availableNodes"
-        :key="node.type"
-        class="node-template"
-        draggable="true"
-        @dragstart="(e) => startDrag(e, node.type)"
-      >
-        {{ node.label }}
-      </div>
-      
-      <button 
-        v-if="nodes.length > 0"
-        class="save-button"
-        @click="saveConfiguration"
-      >
-        Save Configuration
-      </button>
-    </div>
-    
-    <div
-      ref="editorContainer"
-      class="editor-container"
-      @dragover.prevent
-      @drop="handleDrop"
-    >
-      <svg class="connections">
-        <path
-          v-for="connection in getAllConnections()"
-          :key="`${connection.from.id}-${connection.to.id}`"
-          :d="getConnectionPath(connection.from, connection.to)"
-          class="connection-path"
-        />
-        <path
-          v-if="connectingFrom"
-          :d="getTempConnectionPath()"
-          class="connection-path connection-temp"
-        />
-      </svg>
-      
-      <div
-        v-for="node in nodes"
-        :key="node.id"
-        class="node"
-        :class="{
-          'node-connecting': connectingFrom === node,
-          'node-active': node.id === activeNodeId
-        }"
-        :style="{
-          left: node.x + 'px',
-          top: node.y + 'px',
-          cursor: isDragging && node.id === activeNodeId ? 'grabbing' : 'grab'
-        }"
-        :data-node-id="node.id"
-        @mousedown="(e) => startNodeDrag(e, node)"
-      >
-        <div class="node-header">{{ node.label }}</div>
-        <div class="node-ports">
-          <div
-            v-if="node.type !== 'osc'"
-            class="port port-in"
-            @mouseup="(e) => finishConnecting(node, e)"
-          ></div>
-          <div
-            v-if="node.type !== 'destination'"
-            class="port port-out"
-            @mousedown="(e) => startConnecting(node, e)"
-          ></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
 
 <style scoped>
 .editor {
@@ -331,6 +395,8 @@ onUnmounted(() => {
   border-radius: 8px;
   height: 100%;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .node-template {
@@ -345,6 +411,61 @@ onUnmounted(() => {
 
 .node-template:hover {
   background: #4a4a4a;
+}
+
+.synth-actions {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.action-button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-button {
+  background: #646cff;
+}
+
+.save-button:hover {
+  background: #535bf2;
+}
+
+.load-section {
+  margin-top: 20px;
+  border-top: 1px solid #3a3a3a;
+  padding-top: 20px;
+}
+
+.load-section h3 {
+  margin: 0 0 10px 0;
+  font-size: 1em;
+}
+
+.synth-config-item {
+  background: #3a3a3a;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.load-button {
+  background: #4a4a4a;
+  padding: 4px 8px;
+  font-size: 0.9em;
+}
+
+.load-button:hover {
+  background: #5a5a5a;
 }
 
 .editor-container {
@@ -453,29 +574,11 @@ onUnmounted(() => {
 
 .port:hover::before {
   border-color: #535bf2;
-}
-
-.port-in {
+} .port-in {
   margin-right: 10px;
 }
 
 .port-out {
   margin-left: 10px;
-}
-
-.save-button {
-  width: 100%;
-  margin-top: 20px;
-  padding: 10px;
-  background: #646cff;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.save-button:hover {
-  background: #535bf2;
 }
 </style>

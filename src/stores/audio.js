@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 export const useAudioStore = defineStore('audio', () => {
     const _audioContext = ref(null)
@@ -13,6 +13,70 @@ export const useAudioStore = defineStore('audio', () => {
     const synthConfigurations = computed(() => _synthConfigurations.value)
 
     const playingNodes = ref({})
+
+    // Initialize IndexedDB
+    const DB_NAME = 'synthDB'
+    const DB_VERSION = 1
+    const STORE_NAME = 'synths'
+    let db = null
+
+    async function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION)
+
+            request.onerror = () => reject(request.error)
+            request.onsuccess = () => {
+                db = request.result
+                resolve(db)
+            }
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+                }
+            }
+        })
+    }
+
+    async function loadSynthsFromDB() {
+        if (!db) await initDB()
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly')
+            const store = transaction.objectStore(STORE_NAME)
+            const request = store.getAll()
+
+            request.onerror = () => reject(request.error)
+            request.onsuccess = () => {
+                _synthConfigurations.value = request.result
+                resolve(request.result)
+            }
+        })
+    }
+
+    async function saveSynthToDB(synth) {
+        if (!db) await initDB()
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite')
+            const store = transaction.objectStore(STORE_NAME)
+            const request = store.put(synth)
+
+            request.onerror = () => reject(request.error)
+            request.onsuccess = () => resolve(request.result)
+        })
+    }
+
+    async function deleteSynthFromDB(id) {
+        if (!db) await initDB()
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite')
+            const store = transaction.objectStore(STORE_NAME)
+            const request = store.delete(id)
+
+            request.onerror = () => reject(request.error)
+            request.onsuccess = () => resolve()
+        })
+    }
 
     function uuidV4() {
         const uuid = new Array(36);
@@ -85,22 +149,34 @@ export const useAudioStore = defineStore('audio', () => {
         }
     }
 
-    function saveSynthConfiguration(name) {
+    async function saveSynthConfiguration(name) {
         const id = uuidV4()
-        _synthConfigurations.value.push({
+        const synthConfig = {
             id,
             name,
             nodes: JSON.parse(JSON.stringify(_nodes.value))
-        })
+        }
+        _synthConfigurations.value.push(synthConfig)
+        await saveSynthToDB(synthConfig)
         return id
     }
 
-    function deleteSynthConfiguration(id) {
+    async function deleteSynthConfiguration(id) {
         _synthConfigurations.value = _synthConfigurations.value.filter(config => config.id !== id)
+        await deleteSynthFromDB(id)
     }
 
     function clearCurrentConfiguration() {
         _nodes.value = []
+    }
+
+    function loadSynthConfiguration(id) {
+        const config = _synthConfigurations.value.find(c => c.id === id)
+        if (config) {
+            _nodes.value = JSON.parse(JSON.stringify(config.nodes))
+            return true
+        }
+        return false
     }
 
     function createAudioNode(nodeInfo) {
@@ -174,12 +250,10 @@ export const useAudioStore = defineStore('audio', () => {
                 }
             })
 
-            // Initialize frequency array if it doesn't exist
             if (!playingNodes.value[frequency]) {
                 playingNodes.value[frequency] = []
             }
 
-            // Add the new nodes to the playing nodes with their frequency
             playingNodes.value[frequency].push({ configId, audioNodes })
         }
     }
@@ -188,7 +262,6 @@ export const useAudioStore = defineStore('audio', () => {
         if (_audioContext.value !== null && playingNodes.value[frequency]) {
             const currentTime = _audioContext.value.currentTime + delay
             
-            // Get all nodes for this frequency and config
             const frequencyNodes = playingNodes.value[frequency].filter(n => n.configId === configId)
             
             frequencyNodes.forEach(({ audioNodes }) => {
@@ -203,7 +276,6 @@ export const useAudioStore = defineStore('audio', () => {
                     }
                 })
 
-                // Clean up nodes after release
                 setTimeout(() => {
                     audioNodes.forEach(({ node, info }) => {
                         if (info.type === 'osc') {
@@ -213,7 +285,6 @@ export const useAudioStore = defineStore('audio', () => {
                 }, (delay + 2) * 1000)
             })
 
-            // Remove the frequency entry after cleanup
             setTimeout(() => {
                 if (playingNodes.value[frequency]) {
                     playingNodes.value[frequency] = playingNodes.value[frequency].filter(n => n.configId !== configId)
@@ -224,6 +295,9 @@ export const useAudioStore = defineStore('audio', () => {
             }, (delay + 2) * 1000)
         }
     }
+
+    // Load synths from IndexedDB when the store is initialized
+    loadSynthsFromDB().catch(console.error)
 
     return { 
         audioContext,
@@ -240,6 +314,7 @@ export const useAudioStore = defineStore('audio', () => {
         saveSynthConfiguration,
         deleteSynthConfiguration,
         clearCurrentConfiguration,
-        synthConfigurations
+        synthConfigurations,
+        loadSynthConfiguration
     }
 })
