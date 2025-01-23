@@ -25,10 +25,13 @@ export const useAudioStore = defineStore('audio', () => {
     }
     
     function initAudioContext() {
-      _audioContext.value = new AudioContext()
+        if(_audioContext.value === null) {  
+            _audioContext.value = new AudioContext()
+        }
     }
 
     function addNode(type, param) {
+      initAudioContext();
       if(_audioContext.value !== null) {
         const id = uuidV4();
         _nodes.value.push({
