@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted  } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAudioStore } from '../stores/audio'
 
 const keysPressed = ref([])
+const selectedSynth = ref(null)
 const keysKeyboard = []
 
 keysKeyboard["q"] = 261.63
@@ -18,42 +19,29 @@ keysKeyboard["m"] = 659.26
 
 const storeAudio = useAudioStore()
 
-const constructSimpleSynth = () => {
-    storeAudio.addNode('osc', { type: 'sawtooth', detune: 0 })
-    storeAudio.addNode('osc', { type: 'sawtooth', detune: 12 * 100 })
-    storeAudio.addNode('osc', { type: 'sawtooth', detune: 24 * 100 })
-    storeAudio.addNode('gain', { gain: 0.25 })
-    storeAudio.addNode('adsr', {     
-        start: { value: .25 },
-        attack: { value: 0.7, duration: .025},
-        decay: { value: 0.5, duration: .25},
-        sustain: { value: 0.45, duration: .5},
-        release: { value: 0, duration: .25, constant: .1},
-    })
-
-    storeAudio.connectNodes(0, 3)
-    storeAudio.connectNodes(1, 3)
-    storeAudio.connectNodes(2, 3)
-
-    storeAudio.connectGainToEnveloppe(3, 4)
-    storeAudio.connectToDestination(3)
-}
-
 function handleKeyDown(event) {
-  console.log("Touche pressée:", event.key, {transpo: keysKeyboard[event.key]});
-  if(typeof keysKeyboard[event.key] === 'undefined') return
+  if(typeof keysKeyboard[event.key] === 'undefined' || !selectedSynth.value) return
   if(!keysPressed.value.includes(event.key)){
-    console.log('ajout')
     keysPressed.value.push(event.key)
-    storeAudio.press(0, keysKeyboard[event.key] )
+    storeAudio.press(selectedSynth.value, 0, keysKeyboard[event.key])
   }
 }
 
 function handleKeyUp(event) {
-  console.log("Touche relâchée:", event.key);
-  if(typeof keysKeyboard[event.key] === 'undefined') return
+  if(typeof keysKeyboard[event.key] === 'undefined' || !selectedSynth.value) return
   keysPressed.value = keysPressed.value.filter(key => key !== event.key)
-  storeAudio.release(0, keysKeyboard[event.key])
+  storeAudio.release(selectedSynth.value, 0, keysKeyboard[event.key])
+}
+
+function selectSynth(synthId) {
+  selectedSynth.value = synthId
+}
+
+function deleteSynth(synthId) {
+  if (selectedSynth.value === synthId) {
+    selectedSynth.value = null
+  }
+  storeAudio.deleteSynthConfiguration(synthId)
 }
 
 onMounted(() => {
@@ -65,33 +53,136 @@ onUnmounted(() => {
   window.removeEventListener("keydown", handleKeyDown);
   window.removeEventListener("keyup", handleKeyUp);
 });
-
 </script>
 
 <template>
-
-  <div class="card">
-    <span v-for="key in keysPressed" :key="key" style="margin-right:4px">
-      {{ key }} - {{ keysKeyboard[key] }}
-    </span>
-  </div>
-
-  <div class="card">
-    <button type="button" @click="storeAudio.initAudioContext()" :disabled="storeAudio.audioContext !== null">Init</button>
-    <button type="button" @click="constructSimpleSynth()" :disabled="storeAudio.audioContext === null">constructSimpleSynth</button>
+  <div class="board-synth">
+    <div v-if="storeAudio.synthConfigurations.length === 0" class="no-synths">
+      No synths available. Create one in the Node Editor!
+    </div>
     
-    <div>
-      Nodes
-      <div v-for="node in storeAudio.nodes" :key="node">
-        {{ node.id }}<br>
-        {{ node.type }}<br>
-        {{ node.param }}<br>
-        {{ node }}
+    <div v-else class="synth-list">
+      <div
+        v-for="synth in storeAudio.synthConfigurations"
+        :key="synth.id"
+        class="synth-item"
+        :class="{ active: selectedSynth === synth.id }"
+        @click="selectSynth(synth.id)"
+      >
+        <span class="synth-name">{{ synth.name }}</span>
+        <button 
+          class="delete-button"
+          @click.stop="deleteSynth(synth.id)"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+
+    <div v-if="selectedSynth" class="keyboard-info">
+      <h3>Keyboard Controls</h3>
+      <div class="keys-pressed">
+        Active keys:
+        <span v-for="key in keysPressed" :key="key" class="key-badge">
+          {{ key }}
+        </span>
+      </div>
+      <div class="key-map">
+        <div v-for="(freq, key) in keysKeyboard" :key="key" class="key-item">
+          {{ key }}: {{ freq.toFixed(2) }}Hz
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.board-synth {
+  background: #2a2a2a;
+  padding: 20px;
+  border-radius: 8px;
+  color: white;
+}
 
+.no-synths {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.synth-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.synth-item {
+  background: #3a3a3a;
+  padding: 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.synth-item:hover {
+  background: #4a4a4a;
+}
+
+.synth-item.active {
+  background: #646cff;
+}
+
+.synth-name {
+  font-weight: 500;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: #ff4444;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.delete-button:hover {
+  color: #ff6666;
+}
+
+.keyboard-info {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.keys-pressed {
+  margin: 10px 0;
+}
+
+.key-badge {
+  background: #646cff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin: 0 4px;
+  font-family: monospace;
+}
+
+.key-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.key-item {
+  background: #3a3a3a;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
 </style>

@@ -5,12 +5,14 @@ export const useAudioStore = defineStore('audio', () => {
     const _audioContext = ref(null)
     const _nodes = ref([])
     const _selectedNode = ref(null)
+    const _synthConfigurations = ref([])
    
     const audioContext = computed(() => _audioContext.value)
     const nodes = computed(() => _nodes.value)
     const selectedNode = computed(() => _selectedNode.value)
+    const synthConfigurations = computed(() => _synthConfigurations.value)
 
-    const playingNodes = ref([])
+    const playingNodes = ref({})
 
     function uuidV4() {
         const uuid = new Array(36);
@@ -83,6 +85,24 @@ export const useAudioStore = defineStore('audio', () => {
         }
     }
 
+    function saveSynthConfiguration(name) {
+        const id = uuidV4()
+        _synthConfigurations.value.push({
+            id,
+            name,
+            nodes: JSON.parse(JSON.stringify(_nodes.value))
+        })
+        return id
+    }
+
+    function deleteSynthConfiguration(id) {
+        _synthConfigurations.value = _synthConfigurations.value.filter(config => config.id !== id)
+    }
+
+    function clearCurrentConfiguration() {
+        _nodes.value = []
+    }
+
     function createAudioNode(nodeInfo) {
         switch (nodeInfo.type) {
             case 'osc':
@@ -107,13 +127,16 @@ export const useAudioStore = defineStore('audio', () => {
         }
     }
 
-    function press(delay = 0, frequency = 880) {
+    function press(configId, delay = 0, frequency = 880) {
         if(_audioContext.value !== null) {
             const currentTime = _audioContext.value.currentTime + delay
             const audioNodes = new Map()
+            const config = _synthConfigurations.value.find(c => c.id === configId)
+            
+            if (!config) return
 
             // Create all nodes first
-            _nodes.value.forEach(nodeInfo => {
+            config.nodes.forEach(nodeInfo => {
                 const node = createAudioNode(nodeInfo)
                 audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
             })
@@ -151,21 +174,24 @@ export const useAudioStore = defineStore('audio', () => {
                 }
             })
 
-            // Add the new nodes to the playing nodes with their frequency
+            // Initialize frequency array if it doesn't exist
             if (!playingNodes.value[frequency]) {
                 playingNodes.value[frequency] = []
             }
-            playingNodes.value[frequency].push(audioNodes)
+
+            // Add the new nodes to the playing nodes with their frequency
+            playingNodes.value[frequency].push({ configId, audioNodes })
         }
     }
   
-    function release(delay = 0, frequency) {
-        if(_audioContext.value !== null && playingNodes.value[frequency]) {
+    function release(configId, delay = 0, frequency) {
+        if (_audioContext.value !== null && playingNodes.value[frequency]) {
             const currentTime = _audioContext.value.currentTime + delay
             
-            // Get all nodes for this frequency
-            const frequencyNodes = playingNodes.value[frequency]
-            frequencyNodes.forEach(audioNodes => {
+            // Get all nodes for this frequency and config
+            const frequencyNodes = playingNodes.value[frequency].filter(n => n.configId === configId)
+            
+            frequencyNodes.forEach(({ audioNodes }) => {
                 audioNodes.forEach(({ node, info }) => {
                     if (info.type === 'gain' && info.envelope) {
                         const envelopeInfo = audioNodes.get(info.envelope)
@@ -189,7 +215,12 @@ export const useAudioStore = defineStore('audio', () => {
 
             // Remove the frequency entry after cleanup
             setTimeout(() => {
-                delete playingNodes.value[frequency]
+                if (playingNodes.value[frequency]) {
+                    playingNodes.value[frequency] = playingNodes.value[frequency].filter(n => n.configId !== configId)
+                    if (playingNodes.value[frequency].length === 0) {
+                        delete playingNodes.value[frequency]
+                    }
+                }
             }, (delay + 2) * 1000)
         }
     }
@@ -205,6 +236,10 @@ export const useAudioStore = defineStore('audio', () => {
         connectToDestination,
         connectGainToEnveloppe,
         press,
-        release
+        release,
+        saveSynthConfiguration,
+        deleteSynthConfiguration,
+        clearCurrentConfiguration,
+        synthConfigurations
     }
 })

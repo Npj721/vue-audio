@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useAudioStore } from '../stores/audio'
+import { useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 
 const storeAudio = useAudioStore()
 const editorContainer = ref(null)
@@ -11,6 +13,7 @@ const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
 const mousePos = ref({ x: 0, y: 0 })
 const activeNodeId = ref(null)
+const router = useRouter()
 
 const availableNodes = [
   { type: 'osc', label: 'Oscillateur', params: { type: 'sawtooth', detune: 0 } },
@@ -36,8 +39,8 @@ function handleDrop(event) {
   if (!draggingNode.value) return
   
   const rect = editorContainer.value.getBoundingClientRect()
-  const x = event.clientX - rect.left - 100 // Centrer le nœud sur le curseur
-  const y = event.clientY - rect.top - 30   // Centrer le nœud sur le curseur
+  const x = event.clientX - rect.left - 100
+  const y = event.clientY - rect.top - 30
   
   if (draggingNode.value.special) {
     if (!nodes.value.some(n => n.type === 'destination')) {
@@ -128,30 +131,37 @@ function finishConnecting(targetNode, event) {
   const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id)
   
   if (targetNode.type === 'destination') {
+    // Allow any node type to connect to destination
     storeAudio.connectToDestination(sourceIndex)
+    connectingFrom.value.connections.push('destination')
   } else if (targetNode.type === 'adsr' && connectingFrom.value.type === 'gain') {
     const targetIndex = storeAudio.nodes.findIndex(n => n.id === targetNode.id)
     storeAudio.connectGainToEnveloppe(sourceIndex, targetIndex)
-  } else {
+    connectingFrom.value.connections.push(targetNode.id)
+  } else if (connectingFrom.value.type === 'osc' && targetNode.type === 'gain') {
     const targetIndex = storeAudio.nodes.findIndex(n => n.id === targetNode.id)
     storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(targetNode.id)
   }
   
-  connectingFrom.value.connections.push(targetNode.id)
   connectingFrom.value = null
 }
 
 function getConnectionPath(fromNode, toNode) {
-  const startX = fromNode.x + 200
-  const startY = fromNode.y + 40
-  const endX = toNode.x
-  const endY = toNode.y + 40
+  const fromRect = editorContainer.value.getBoundingClientRect()
+  const startX = fromNode.x + 200 // Right side of source node
+  const startY = fromNode.y + 40  // Middle of source node
+  const endX = toNode.x          // Left side of target node
+  const endY = toNode.y + 40     // Middle of target node
   
-  const dx = Math.abs(endX - startX) * 0.5
+  // Calculate control points for the curve
+  const distance = Math.abs(endX - startX)
+  const controlPoint1X = startX + distance * 0.5
+  const controlPoint2X = endX - distance * 0.5
   
   return `M ${startX} ${startY} 
-          C ${startX + dx} ${startY}, 
-            ${endX - dx} ${endY}, 
+          C ${controlPoint1X} ${startY},
+            ${controlPoint2X} ${endY},
             ${endX} ${endY}`
 }
 
@@ -163,11 +173,13 @@ function getTempConnectionPath() {
   const endX = mousePos.value.x
   const endY = mousePos.value.y
   
-  const dx = Math.abs(endX - startX) * 0.5
+  const distance = Math.abs(endX - startX)
+  const controlPoint1X = startX + distance * 0.5
+  const controlPoint2X = endX - distance * 0.5
   
   return `M ${startX} ${startY} 
-          C ${startX + dx} ${startY}, 
-            ${endX - dx} ${endY}, 
+          C ${controlPoint1X} ${startY},
+            ${controlPoint2X} ${endY},
             ${endX} ${endY}`
 }
 
@@ -175,9 +187,45 @@ function getAllConnections() {
   return nodes.value.flatMap(node => 
     node.connections.map(connectionId => ({
       from: node,
-      to: nodes.value.find(n => n.id === connectionId)
+      to: connectionId === 'destination' 
+        ? nodes.value.find(n => n.id === 'destination')
+        : nodes.value.find(n => n.id === connectionId)
     }))
   ).filter(connection => connection.to)
+}
+
+async function saveConfiguration() {
+  const { value: name } = await Swal.fire({
+    title: 'Save Synth Configuration',
+    input: 'text',
+    inputLabel: 'Configuration Name',
+    inputPlaceholder: 'Enter a name for your synth...',
+    showCancelButton: true,
+    inputValidator: (value) => {
+      if (!value) {
+        return 'You need to provide a name!'
+      }
+    }
+  })
+
+  if (name) {
+    storeAudio.saveSynthConfiguration(name)
+    storeAudio.clearCurrentConfiguration()
+    nodes.value = []
+    
+    const { isConfirmed } = await Swal.fire({
+      title: 'Configuration Saved!',
+      text: 'Would you like to go to the Board to test it?',
+      icon: 'success',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, go to Board',
+      cancelButtonText: 'No, continue editing'
+    })
+
+    if (isConfirmed) {
+      router.push('/board')
+    }
+  }
 }
 
 onMounted(() => {
@@ -203,6 +251,14 @@ onUnmounted(() => {
       >
         {{ node.label }}
       </div>
+      
+      <button 
+        v-if="nodes.length > 0"
+        class="save-button"
+        @click="saveConfiguration"
+      >
+        Save Configuration
+      </button>
     </div>
     
     <div
@@ -244,11 +300,12 @@ onUnmounted(() => {
         <div class="node-header">{{ node.label }}</div>
         <div class="node-ports">
           <div
-            v-if="node.type !== 'destination'"
+            v-if="node.type !== 'osc'"
             class="port port-in"
             @mouseup="(e) => finishConnecting(node, e)"
           ></div>
           <div
+            v-if="node.type !== 'destination'"
             class="port port-out"
             @mousedown="(e) => startConnecting(node, e)"
           ></div>
@@ -260,7 +317,7 @@ onUnmounted(() => {
 
 <style scoped>
 .editor {
-  color:white;
+  color: white;
   display: flex;
   gap: 20px;
   height: 800px;
@@ -310,13 +367,20 @@ onUnmounted(() => {
 .connection-path {
   fill: none;
   stroke: #646cff;
-  stroke-width: 2px;
-  transition: stroke-width 0.2s;
+  stroke-width: 3px;
+  transition: all 0.2s ease;
 }
 
 .connection-temp {
   stroke: #646cff80;
   stroke-dasharray: 5,5;
+  animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
 }
 
 .node {
@@ -397,5 +461,21 @@ onUnmounted(() => {
 
 .port-out {
   margin-left: 10px;
+}
+
+.save-button {
+  width: 100%;
+  margin-top: 20px;
+  padding: 10px;
+  background: #646cff;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-button:hover {
+  background: #535bf2;
 }
 </style>
