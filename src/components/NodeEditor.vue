@@ -1,4 +1,7 @@
 <template>
+  <div>
+    <NodeMod></NodeMod>
+  </div>
   <div class="editor">
     <div class="palette">
       <div
@@ -94,10 +97,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useAudioStore } from '../stores/audio'
 import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
+import NodeMod from './NodeMod.vue'
 
 const storeAudio = useAudioStore()
 const editorContainer = ref(null)
@@ -166,6 +170,7 @@ function startNodeDrag(event, node) {
   
   isDragging.value = true
   activeNodeId.value = node.id
+  storeAudio.selectNodeFromId(node.id)
   
   const nodeElement = event.target.closest('.node')
   const rect = nodeElement.getBoundingClientRect()
@@ -367,6 +372,20 @@ function performLoad(configId) {
     })
   }
 }
+
+const selectedNode = computed(() => storeAudio.selectedNode);
+
+watch(
+    () => storeAudio.selectedNode,
+    (newNode) => {
+      if (newNode && newNode !== null) {
+        selectedNode.value = JSON.parse(JSON.stringify(newNode))
+      } else {
+        selectedNode.value = null
+      }
+    },
+    { immediate: true }
+  )
 
 onMounted(() => {
   window.addEventListener('mousemove', handleNodeDrag)

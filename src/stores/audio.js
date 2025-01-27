@@ -118,6 +118,14 @@ export const useAudioStore = defineStore('audio', () => {
       }
     }
 
+    function selectNodeFromId(id) {
+        const s = _nodes.value.find(item => { return item.id === id})
+        if(s){
+            _selectedNode.value = s
+        }
+        console.log('selectNodeFromId', { id, s })
+      }
+
     function connectNodes(sourceIndex, destinationIndex) {
         if (
             sourceIndex >= 0 && sourceIndex < _nodes.value.length &&
@@ -203,60 +211,84 @@ export const useAudioStore = defineStore('audio', () => {
         }
     }
 
-    function press(configId, delay = 0, frequency = 880) {
-        if(_audioContext.value !== null) {
-            const currentTime = _audioContext.value.currentTime + delay
-            const audioNodes = new Map()
-            const config = _synthConfigurations.value.find(c => c.id === configId)
-            
-            if (!config) return
-
-            // Create all nodes first
-            config.nodes.forEach(nodeInfo => {
-                const node = createAudioNode(nodeInfo)
-                audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
-            })
-
-            // Make all connections
-            audioNodes.forEach(({ node, info }) => {
-                info.connections.forEach(destId => {
-                    if (destId === 'destination') {
-                        node.connect(_audioContext.value.destination)
-                    } else {
-                        const destNode = audioNodes.get(destId)
-                        if (destNode) {
-                            node.connect(destNode.node)
+        function press(configId, delay = 0, frequency = 880) {
+            if(_audioContext.value !== null) {  
+                // Stop any nodes already playing at the same frequency
+                stopPlayingNodesAtFrequency(frequency)
+                const currentTime = _audioContext.value.currentTime + delay
+                const audioNodes = new Map()
+                const config = _synthConfigurations.value.find(c => c.id === configId)
+                
+                if (!config) return
+    
+                // Create all nodes first
+                config.nodes.forEach(nodeInfo => {
+                    const node = createAudioNode(nodeInfo)
+                    audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
+                })
+    
+                // Make all connections
+                audioNodes.forEach(({ node, info }) => {
+                    info.connections.forEach(destId => {
+                        if (destId === 'destination') {
+                            node.connect(_audioContext.value.destination)
+                        } else {
+                            const destNode = audioNodes.get(destId)
+                            if (destNode) {
+                                node.connect(destNode.node)
+                            }
+                        }
+                    })
+                })
+    
+                // Set frequencies and start oscillators
+                audioNodes.forEach(({ node, info }) => {
+                    if (info.type === 'osc') {
+                        node.frequency.value = frequency
+                        node.start()
+                    } else if (info.type === 'gain' && info.envelope) {
+                        const envelopeInfo = audioNodes.get(info.envelope)
+                        if (envelopeInfo) {
+                            const env = envelopeInfo.node
+                            node.gain.cancelScheduledValues(currentTime)
+                            node.gain.setValueAtTime(env.start.value * info.param.gain, currentTime)
+                            node.gain.setTargetAtTime(env.attack.value * info.param.gain, currentTime + env.attack.duration, env.attack.constant || .1)
+                            node.gain.setTargetAtTime(env.decay.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration, env.decay.constant || .1)
+                            node.gain.setTargetAtTime(env.sustain.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
+                            node.gain.setTargetAtTime(env.release.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
                         }
                     }
                 })
-            })
-
-            // Set frequencies and start oscillators
-            audioNodes.forEach(({ node, info }) => {
-                if (info.type === 'osc') {
-                    node.frequency.value = frequency
-                    node.start()
-                } else if (info.type === 'gain' && info.envelope) {
-                    const envelopeInfo = audioNodes.get(info.envelope)
-                    if (envelopeInfo) {
-                        const env = envelopeInfo.node
-                        node.gain.cancelScheduledValues(currentTime)
-                        node.gain.setValueAtTime(env.start.value * info.param.gain, currentTime)
-                        node.gain.setTargetAtTime(env.attack.value * info.param.gain, currentTime + env.attack.duration, env.attack.constant || .1)
-                        node.gain.setTargetAtTime(env.decay.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration, env.decay.constant || .1)
-                        node.gain.setTargetAtTime(env.sustain.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
-                        node.gain.setTargetAtTime(env.release.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
-                    }
+    
+                if (!playingNodes.value[frequency]) {
+                    playingNodes.value[frequency] = []
                 }
-            })
-
-            if (!playingNodes.value[frequency]) {
-                playingNodes.value[frequency] = []
+    
+                playingNodes.value[frequency].push({ configId, audioNodes })
             }
-
-            playingNodes.value[frequency].push({ configId, audioNodes })
         }
-    }
+    
+        function stopPlayingNodesAtFrequency(frequency) {
+            if (_audioContext.value !== null && playingNodes.value[frequency]) {
+                const currentTime = _audioContext.value.currentTime
+    
+                playingNodes.value[frequency].forEach(({ audioNodes }) => {
+                    audioNodes.forEach(({ node, info }) => {
+                        if (info.type === 'osc') {
+                            node.stop(currentTime)
+                        } else if (info.type === 'gain' && info.envelope) {
+                            const envelopeInfo = audioNodes.get(info.envelope)
+                            if (envelopeInfo) {
+                                const env = envelopeInfo.node
+                                node.gain.setValueAtTime(0, currentTime)
+                            }
+                        }
+                    })
+                })
+    
+                delete playingNodes.value[frequency]
+            }
+        }
   
     function release(configId, delay = 0, frequency) {
         if (_audioContext.value !== null && playingNodes.value[frequency]) {
@@ -305,6 +337,7 @@ export const useAudioStore = defineStore('audio', () => {
         addNode,
         nodes,
         selectNodeFromIndex,
+        selectNodeFromId,
         selectedNode,
         connectNodes,
         connectToDestination,
