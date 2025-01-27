@@ -1,101 +1,3 @@
-<template>
-  <div>
-    <NodeMod></NodeMod>
-  </div>
-  <div class="editor">
-    <div class="palette">
-      <div
-        v-for="node in availableNodes"
-        :key="node.type"
-        class="node-template"
-        draggable="true"
-        @dragstart="(e) => startDrag(e, node.type)"
-      >
-        {{ node.label }}
-      </div>
-      
-      <div class="synth-actions">
-        <button 
-          v-if="nodes.length > 0"
-          class="action-button save-button"
-          @click="saveConfiguration"
-        >
-          Save Configuration
-        </button>
-
-        <div v-if="storeAudio.synthConfigurations.length > 0" class="load-section">
-          <h3>Load Configuration</h3>
-          <div 
-            v-for="config in storeAudio.synthConfigurations" 
-            :key="config.id"
-            class="synth-config-item"
-          >
-            <span>{{ config.name }}</span>
-            <button 
-              class="action-button load-button"
-              @click="loadConfiguration(config.id)"
-            >
-              Load
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div
-      ref="editorContainer"
-      class="editor-container"
-      @dragover.prevent
-      @drop="handleDrop"
-    >
-      <svg class="connections">
-        <path
-          v-for="connection in getAllConnections()"
-          :key="`${connection.from.id}-${connection.to.id}`"
-          :d="getConnectionPath(connection.from, connection.to)"
-          class="connection-path"
-        />
-        <path
-          v-if="connectingFrom"
-          :d="getTempConnectionPath()"
-          class="connection-path connection-temp"
-        />
-      </svg>
-      
-      <div
-        v-for="node in nodes"
-        :key="node.id"
-        class="node"
-        :class="{
-          'node-connecting': connectingFrom === node,
-          'node-active': node.id === activeNodeId
-        }"
-        :style="{
-          left: node.x + 'px',
-          top: node.y + 'px',
-          cursor: isDragging && node.id === activeNodeId ? 'grabbing' : 'grab'
-        }"
-        :data-node-id="node.id"
-        @mousedown="(e) => startNodeDrag(e, node)"
-      >
-        <div class="node-header">{{ node.label }}</div>
-        <div class="node-ports">
-          <div
-            v-if="node.type !== 'osc'"
-            class="port port-in"
-            @mouseup="(e) => finishConnecting(node, e)"
-          ></div>
-          <div
-            v-if="node.type !== 'destination'"
-            class="port port-out"
-            @mousedown="(e) => startConnecting(node, e)"
-          ></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useAudioStore } from '../stores/audio'
@@ -110,9 +12,11 @@ const draggingNode = ref(null)
 const connectingFrom = ref(null)
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
-const mousePos = ref({ x: 0, y: 0 })
 const activeNodeId = ref(null)
 const router = useRouter()
+const connections = ref([])
+let tempLine = null
+let LeaderLine = null
 
 const availableNodes = [
   { type: 'osc', label: 'Oscillateur', params: { type: 'sawtooth', detune: 0 } },
@@ -182,16 +86,7 @@ function startNodeDrag(event, node) {
 }
 
 function handleNodeDrag(event) {
-  if (!isDragging.value) {
-    if (connectingFrom.value) {
-      const rect = editorContainer.value.getBoundingClientRect()
-      mousePos.value = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      }
-    }
-    return
-  }
+  if (!isDragging.value) return
   
   event.preventDefault()
   
@@ -203,6 +98,8 @@ function handleNodeDrag(event) {
   if (node) {
     node.x = Math.max(0, Math.min(rect.width - 200, x))
     node.y = Math.max(0, Math.min(rect.height - 100, y))
+    
+    updateConnectionLines()
   }
 }
 
@@ -211,85 +108,109 @@ function stopNodeDrag() {
   activeNodeId.value = null
 }
 
-function startConnecting(node, event) {
+function startConnecting(event, node) {
   event.stopPropagation()
   connectingFrom.value = node
-  const rect = editorContainer.value.getBoundingClientRect()
-  mousePos.value = {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top
+  
+  if (!LeaderLine) return
+
+  const startElement = document.getElementById(`port-out-${node.id}`)
+  if (!startElement) return
+
+  tempLine = new LeaderLine(
+    startElement,
+    LeaderLine.pointAnchor(document.elementFromPoint(event.clientX, event.clientY)),
+    {
+      color: '#646cff80',
+      size: 3,
+      path: 'straight',
+      startSocket: 'right',
+      endSocket: 'left',
+      dash: { animation: true }
+    }
+  )
+}
+
+function updateTempLine(event) {
+  if (tempLine && LeaderLine) {
+    tempLine.end = LeaderLine.pointAnchor(document.elementFromPoint(event.clientX, event.clientY))
   }
 }
 
-function finishConnecting(targetNode, event) {
+function finishConnecting(node, event) {
   event.stopPropagation()
-  if (!connectingFrom.value || connectingFrom.value === targetNode) {
+  if (!connectingFrom.value || connectingFrom.value === node) {
+    if (tempLine) {
+      tempLine.remove()
+      tempLine = null
+    }
     connectingFrom.value = null
     return
   }
   
   const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id)
   
-  if (targetNode.type === 'destination') {
+  if (node.type === 'destination') {
     storeAudio.connectToDestination(sourceIndex)
     connectingFrom.value.connections.push('destination')
-  } else if (targetNode.type === 'adsr' && connectingFrom.value.type === 'gain') {
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === targetNode.id)
+    createConnection(connectingFrom.value, node)
+  } else if (node.type === 'adsr' && connectingFrom.value.type === 'gain') {
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
     storeAudio.connectGainToEnveloppe(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(targetNode.id)
-  } else if (connectingFrom.value.type === 'osc' && targetNode.type === 'gain') {
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === targetNode.id)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  } else if (connectingFrom.value.type === 'osc' && node.type === 'gain') {
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
     storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(targetNode.id)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
   }
   
+  if (tempLine) {
+    tempLine.remove()
+    tempLine = null
+  }
   connectingFrom.value = null
 }
 
-function getConnectionPath(fromNode, toNode) {
-  const fromRect = editorContainer.value.getBoundingClientRect()
-  const startX = fromNode.x + 200
-  const startY = fromNode.y + 40
-  const endX = toNode.x
-  const endY = toNode.y + 40
+function createConnection(fromNode, toNode) {
+  if (!LeaderLine) return
+
+  const startElement = document.getElementById(`port-out-${fromNode.id}`)
+  const endElement = document.getElementById(`port-in-${toNode.id}`)
   
-  const distance = Math.abs(endX - startX)
-  const controlPoint1X = startX + distance * 0.5
-  const controlPoint2X = endX - distance * 0.5
+  if (!startElement || !endElement) return
+
+  const line = new LeaderLine(
+    startElement,
+    endElement,
+    {
+      color: '#646cff',
+      size: 3,
+      path: 'straight',
+      startSocket: 'right',
+      endSocket: 'left'
+    }
+  )
   
-  return `M ${startX} ${startY} 
-          C ${controlPoint1X} ${startY},
-            ${controlPoint2X} ${endY},
-            ${endX} ${endY}`
+  connections.value.push({
+    line,
+    fromId: fromNode.id,
+    toId: toNode.id
+  })
 }
 
-function getTempConnectionPath() {
-  if (!connectingFrom.value) return ''
-  
-  const startX = connectingFrom.value.x + 200
-  const startY = connectingFrom.value.y + 40
-  const endX = mousePos.value.x
-  const endY = mousePos.value.y
-  
-  const distance = Math.abs(endX - startX)
-  const controlPoint1X = startX + distance * 0.5
-  const controlPoint2X = endX - distance * 0.5
-  
-  return `M ${startX} ${startY} 
-          C ${controlPoint1X} ${startY},
-            ${controlPoint2X} ${endY},
-            ${endX} ${endY}`
+function updateConnectionLines() {
+  connections.value.forEach(connection => {
+    connection.line.position()
+  })
 }
 
-function getAllConnections() {
-  return nodes.value.flatMap(node => 
-    node.connections.map(connectionId => ({
-      from: node,
-      to: connectionId === 'destination' 
-        ? nodes.value.find(n => n.id === 'destination')
-        : nodes.value.find(n => n.id === connectionId)
-    }))
-  ).filter(connection => connection.to)
+function clearConnections() {
+  connections.value.forEach(connection => {
+    connection.line.remove()
+  })
+  connections.value = []
 }
 
 async function saveConfiguration() {
@@ -308,6 +229,7 @@ async function saveConfiguration() {
 
   if (name) {
     await storeAudio.saveSynthConfiguration(name)
+    clearConnections()
     storeAudio.clearCurrentConfiguration()
     nodes.value = []
     
@@ -346,6 +268,7 @@ function loadConfiguration(configId) {
 }
 
 function performLoad(configId) {
+  clearConnections()
   if (storeAudio.loadSynthConfiguration(configId)) {
     nodes.value = storeAudio.nodes.map(node => ({
       ...node,
@@ -364,6 +287,19 @@ function performLoad(configId) {
       })
     }
 
+    // Recreate connections after nodes are rendered
+    setTimeout(() => {
+      nodes.value.forEach(node => {
+        node.connections.forEach(targetId => {
+          const targetNode = nodes.value.find(n => n.id === targetId) ||
+            (targetId === 'destination' ? nodes.value.find(n => n.id === 'destination') : null)
+          if (targetNode) {
+            createConnection(node, targetNode)
+          }
+        })
+      })
+    }, 100)
+
     Swal.fire({
       title: 'Configuration Loaded!',
       icon: 'success',
@@ -373,30 +309,124 @@ function performLoad(configId) {
   }
 }
 
-const selectedNode = computed(() => storeAudio.selectedNode);
+const selectedNode = computed(() => storeAudio.selectedNode)
 
 watch(
-    () => storeAudio.selectedNode,
-    (newNode) => {
-      if (newNode && newNode !== null) {
-        selectedNode.value = JSON.parse(JSON.stringify(newNode))
-      } else {
-        selectedNode.value = null
-      }
-    },
-    { immediate: true }
-  )
+  () => storeAudio.selectedNode,
+  (newNode) => {
+    if (newNode && newNode !== null) {
+      selectedNode.value = JSON.parse(JSON.stringify(newNode))
+    } else {
+      selectedNode.value = null
+    }
+  },
+  { immediate: true }
+)
 
-onMounted(() => {
-  window.addEventListener('mousemove', handleNodeDrag)
+onMounted(async () => {
+  // Load LeaderLine dynamically
+  const leaderLineModule = await import('leader-line-new')
+  LeaderLine = leaderLineModule.default
+
+  window.addEventListener('mousemove', (e) => {
+    handleNodeDrag(e)
+    updateTempLine(e)
+  })
   window.addEventListener('mouseup', stopNodeDrag)
 })
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', handleNodeDrag)
   window.removeEventListener('mouseup', stopNodeDrag)
+  clearConnections()
 })
 </script>
+
+<template>
+  <div>
+    <NodeMod></NodeMod>
+  </div>
+  <div class="editor">
+    <div class="palette">
+      <div
+        v-for="node in availableNodes"
+        :key="node.type"
+        class="node-template"
+        draggable="true"
+        @dragstart="(e) => startDrag(e, node.type)"
+      >
+        {{ node.label }}
+      </div>
+      
+      <div class="synth-actions">
+        <button 
+          v-if="nodes.length > 0"
+          class="action-button save-button"
+          @click="saveConfiguration"
+        >
+          Save Configuration
+        </button>
+
+        <div v-if="storeAudio.synthConfigurations.length > 0" class="load-section">
+          <h3>Load Configuration</h3>
+          <div 
+            v-for="config in storeAudio.synthConfigurations" 
+            :key="config.id"
+            class="synth-config-item"
+          >
+            <span>{{ config.name }}</span>
+            <button 
+              class="action-button load-button"
+              @click="loadConfiguration(config.id)"
+            >
+              Load
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div
+      ref="editorContainer"
+      class="editor-container"
+      @dragover.prevent
+      @drop="handleDrop"
+    >
+      <div
+        v-for="node in nodes"
+        :key="node.id"
+        class="node"
+        :class="{
+          'node-connecting': connectingFrom === node,
+          'node-active': node.id === activeNodeId
+        }"
+        :style="{
+          left: node.x + 'px',
+          top: node.y + 'px',
+          cursor: isDragging && node.id === activeNodeId ? 'grabbing' : 'grab'
+        }"
+        :data-node-id="node.id"
+        @mousedown="(e) => startNodeDrag(e, node)"
+      >
+        <div class="node-header">{{ node.label }}</div>
+        <div class="node-ports">
+          <div
+            v-if="node.type !== 'osc'"
+            class="port port-in"
+            :id="`port-in-${node.id}`"
+            @mouseup="(e) => finishConnecting(node, e)"
+          ></div>
+          <div
+            v-if="node.type !== 'destination'"
+            class="port port-out"
+            :id="`port-out-${node.id}`"
+            @mousedown="(e) => startConnecting(e, node)"
+          ></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .editor {
@@ -496,33 +526,6 @@ onUnmounted(() => {
   min-width: 600px;
 }
 
-.connections {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.connection-path {
-  fill: none;
-  stroke: #646cff;
-  stroke-width: 3px;
-  transition: all 0.2s ease;
-}
-
-.connection-temp {
-  stroke: #646cff80;
-  stroke-dasharray: 5,5;
-  animation: dash 1s linear infinite;
-}
-
-@keyframes dash {
-  to {
-    stroke-dashoffset: -10;
-  }
-}
-
 .node {
   position: absolute;
   width: 200px;
@@ -593,7 +596,9 @@ onUnmounted(() => {
 
 .port:hover::before {
   border-color: #535bf2;
-} .port-in {
+}
+
+.port-in {
   margin-right: 10px;
 }
 
