@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useAudioStore } from '../stores/audio'
 import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
-import NodeMod from './NodeMod.vue'
+import NodeParamEditor from './NodeParamEditor.vue'
 
 const storeAudio = useAudioStore()
 const editorContainer = ref(null)
@@ -17,6 +17,34 @@ const router = useRouter()
 const connections = ref([])
 let tempLine = null
 let LeaderLine = null
+
+function handleBackgroundClick(event) {
+  if (event.target === editorContainer.value) {
+    storeAudio.selectNodeFromId(null)
+  }
+}
+
+function deleteNode(nodeId) {
+  const nodeToDelete = nodes.value.find(n => n.id === nodeId)
+  if (!nodeToDelete) return
+
+  connections.value = connections.value.filter(conn => {
+    if (conn.fromId === nodeId || conn.toId === nodeId) {
+      conn.line.remove()
+      return false
+    }
+    return true
+  })
+
+  nodes.value = nodes.value.filter(n => n.id !== nodeId)
+  
+  if (activeNodeId.value === nodeId) {
+    activeNodeId.value = null
+    storeAudio.selectNodeFromId(null)
+  }
+
+  storeAudio.removeNode(nodeId)
+}
 
 const availableNodes = [
   { type: 'osc', label: 'Oscillateur', params: { type: 'sawtooth', detune: 0 } },
@@ -105,7 +133,7 @@ function handleNodeDrag(event) {
 
 function stopNodeDrag() {
   isDragging.value = false
-  activeNodeId.value = null
+  //activeNodeId.value = null
 }
 
 function startConnecting(event, node) {
@@ -228,7 +256,15 @@ async function saveConfiguration() {
   })
 
   if (name) {
-    await storeAudio.saveSynthConfiguration(name)
+    const existingConfig = storeAudio.currentConfigId ? 
+      storeAudio.synthConfigurations.find(c => c.id === storeAudio.currentConfigId) : null
+
+    if (existingConfig) {
+      await storeAudio.updateSynthConfiguration(existingConfig.id, name)
+    } else {
+      await storeAudio.saveSynthConfiguration(name)
+    }
+
     clearConnections()
     storeAudio.clearCurrentConfiguration()
     nodes.value = []
@@ -287,7 +323,6 @@ function performLoad(configId) {
       })
     }
 
-    // Recreate connections after nodes are rendered
     setTimeout(() => {
       nodes.value.forEach(node => {
         node.connections.forEach(targetId => {
@@ -324,7 +359,6 @@ watch(
 )
 
 onMounted(async () => {
-  // Load LeaderLine dynamically
   const leaderLineModule = await import('leader-line-new')
   LeaderLine = leaderLineModule.default
 
@@ -343,9 +377,6 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
-    <NodeMod></NodeMod>
-  </div>
   <div class="editor">
     <div class="palette">
       <div
@@ -391,6 +422,7 @@ onUnmounted(() => {
       class="editor-container"
       @dragover.prevent
       @drop="handleDrop"
+      @click="handleBackgroundClick"
     >
       <div
         v-for="node in nodes"
@@ -408,7 +440,16 @@ onUnmounted(() => {
         :data-node-id="node.id"
         @mousedown="(e) => startNodeDrag(e, node)"
       >
-        <div class="node-header">{{ node.label }}</div>
+        <div class="node-header">
+          {{ node.label }}
+          <button 
+            v-if="node.type !== 'destination'"
+            class="delete-node-btn"
+            @click.stop="deleteNode(node.id)"
+          >
+            ×
+          </button>
+        </div>
         <div class="node-ports">
           <div
             v-if="node.type !== 'osc'"
@@ -424,6 +465,15 @@ onUnmounted(() => {
           ></div>
         </div>
       </div>
+      {{ activeNodeId }}
+      <NodeParamEditor 
+        v-if="activeNodeId"
+        :style="{
+          position: 'absolute',
+          left: (nodes.find(n => n.id === activeNodeId)?.x || 0) + 220 + 'px',
+          top: (nodes.find(n => n.id === activeNodeId)?.y || 0) + 'px'
+        }"
+      />
     </div>
   </div>
 </template>
@@ -553,6 +603,7 @@ onUnmounted(() => {
 }
 
 .node-header {
+  position: relative;
   padding: 10px;
   background: #4a4a4a;
   border-radius: 4px 4px 0 0;
@@ -604,5 +655,32 @@ onUnmounted(() => {
 
 .port-out {
   margin-left: 10px;
+}
+
+.delete-node-btn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #ff4444;
+  font-size: 16px;
+  padding: 0 5px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.delete-node-btn:hover {
+  opacity: 1;
+}
+
+.node-header {
+  position: relative;
+  padding: 10px;
+  background: #4a4a4a;
+  border-radius: 4px 4px 0 0;
+  font-weight: 500;
 }
 </style>
