@@ -494,6 +494,15 @@ onUnmounted(() => {
       >
         {{ node.label }}
       </div>
+
+      <NodeParamEditor 
+        v-if="storeAudio.selectedNode"
+        :style="{
+          position: 'absolute',
+          left: '0px',
+          top: '0px',
+        }"
+      />
       
       <div class="synth-actions">
         <button 
@@ -519,10 +528,10 @@ onUnmounted(() => {
               Load
             </button>
             <button 
-              class="action-button load-button"
+              class="action-button delete-button"
               @click="deleteConfiguration(config.id)"
             >
-              Delete
+            🗑️
             </button>
           </div>
         </div>
@@ -577,14 +586,7 @@ onUnmounted(() => {
           ></div>
         </div>
       </div>
-      <NodeParamEditor 
-        v-if="activeNodeId"
-        :style="{
-          position: 'absolute',
-          left: (nodes.find(n => n.id === activeNodeId)?.x || 0) + 220 + 'px',
-          top: (nodes.find(n => n.id === activeNodeId)?.y || 0) + 'px'
-        }"
-      />
+      
     </div>
   </div>
   {{ storeAudio.selectedNode }}
@@ -612,8 +614,8 @@ onUnmounted(() => {
 
 .node-template {
   background: #3a3a3a;
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 5px;
+  margin-bottom: 5px;
   border-radius: 4px;
   cursor: move;
   user-select: none;
@@ -672,11 +674,22 @@ onUnmounted(() => {
 .load-button {
   background: #4a4a4a;
   padding: 4px 8px;
-  font-size: 0.9em;
+  font-size: 0.75em;
 }
 
 .load-button:hover {
   background: #5a5a5a;
+}
+
+.delete-button {
+  background: #790808;
+  padding: 4px 8px;
+  font-size: 0.75em;
+}
+
+.delete-button:hover {
+  background: #e91111;
+
 }
 
 .editor-container {

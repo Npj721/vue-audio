@@ -291,7 +291,7 @@ export const useAudioStore = defineStore('audio', () => {
                 const node = createAudioNode(nodeInfo)
 
                 if (node.type === 'mod'){
-                    console.log('mod', { node, nodeInfo })
+                    
                     audioNodes.set(nodeInfo.id, { node: {gain: node.gain, osc: node.osc }, info: { ...nodeInfo, id: nodeInfo.id} })
                 }else{
                     audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
@@ -328,10 +328,10 @@ export const useAudioStore = defineStore('audio', () => {
                     node.frequency.value = frequency
                     node.start()
                 } else if (info.type === 'mod') {
-                    node.osc.frequency.value = 10
+                    node.osc.frequency.value = info.param.freq
                     node.osc.start()
 
-                    console.log({node, info})
+                    console.log('Set frequencies and start oscillators', {node, info})
                 }
                 
                 else if (info.type === 'gain') {
@@ -420,6 +420,7 @@ export const useAudioStore = defineStore('audio', () => {
                 setTimeout(() => {
                     audioNodes.forEach(({ node, info }) => {
                         if (info.type === 'osc') {
+                            console.log('osc stopped ! ', { node, info })
                             node.stop()
                         }
                     })
