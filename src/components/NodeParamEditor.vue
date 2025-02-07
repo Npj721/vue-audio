@@ -5,12 +5,25 @@
       <div v-if="selectedNode" :key="selectedNode.id">
         <label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>
         <div v-for="(param, key) in selectedNode.param" :key="key">
-          <label :for="'param-input-' + key">{{ key }}:</label>
-          <input 
-            :id="'param-input-' + key"
-            v-model="selectedNode.param[key]"
-            
-          />
+          
+          <div v-if="typeof param.value === 'undefined'">
+            pas obj 
+            <label :for="'param-input-' + key">{{ key }}:</label>
+            <input 
+              :id="'param-input-' + key"
+              v-model="selectedNode.param[key]"
+              
+            />
+          </div>
+          <div v-else>
+            <label :for="'param-input-' + key">{{ key }}:</label>
+            <input 
+              :id="'param-input-' + key"
+              v-model="selectedNode.param[key].value"
+              
+            />
+          </div>
+          
         </div>
         <button type="submit">Update</button>
       </div>
