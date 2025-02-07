@@ -242,11 +242,26 @@ export const useAudioStore = defineStore('audio', () => {
                 osc.type = nodeInfo.param.type || 'sine'
                 osc.detune.value = nodeInfo.param.detune || 0
                 return osc
+
+            case 'mod':
+                const oscmod = _audioContext.value.createOscillator()
+                oscmod.type = nodeInfo.param.type || 'sine'
+                oscmod.detune.value = nodeInfo.param.detune || 0
+                oscmod.frequency.value = nodeInfo.param.frequency || 10
+
+                const gainmod = _audioContext.value.createGain()
+                gainmod.gain.value = nodeInfo.param.gain || 150; 
+
+                oscmod.connect(gainmod)
+
+                return { type: 'mod', osc: oscmod, gain: gainmod }
+
             case 'gain':
                 const gain = _audioContext.value.createGain()
                 // Set initial gain value from the node parameters
                 gain.gain.value = nodeInfo.param.gain || 0
                 return gain
+
             case 'adsr':
                 return {
                     start: nodeInfo.param.start || { value: 0 },
@@ -273,18 +288,34 @@ export const useAudioStore = defineStore('audio', () => {
             // Create all nodes first
             config.nodes.forEach(nodeInfo => {
                 const node = createAudioNode(nodeInfo)
-                audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
+
+                if (node.type === 'mod'){
+                    console.log('mod', { node, nodeInfo })
+                    audioNodes.set(nodeInfo.id, { node: {gain: node.gain, osc: node.osc }, info: { ...nodeInfo, id: nodeInfo.id} })
+                }else{
+                    audioNodes.set(nodeInfo.id, { node, info: nodeInfo })
+                }
+                
             })
 
             // Make all connections
             audioNodes.forEach(({ node, info }) => {
+                console.log('press node', { node })
                 info.connections.forEach(destId => {
+                    console.log('press node connection', { destId })
+
                     if (destId === 'destination') {
                         node.connect(_audioContext.value.destination)
                     } else {
                         const destNode = audioNodes.get(destId)
                         if (destNode) {
-                            node.connect(destNode.node)
+                            console.log('connection', { node, destNode })
+                            if(info.type === "mod"){
+                                node.gain.connect(destNode.node.detune)
+                            }else{
+                                node.connect(destNode.node)
+                            }
+                            
                         }
                     }
                 })
@@ -295,7 +326,14 @@ export const useAudioStore = defineStore('audio', () => {
                 if (info.type === 'osc') {
                     node.frequency.value = frequency
                     node.start()
-                } else if (info.type === 'gain') {
+                } else if (info.type === 'mod') {
+                    node.osc.frequency.value = 10
+                    node.osc.start()
+
+                    console.log({node, info})
+                }
+                
+                else if (info.type === 'gain') {
                     if (info.envelope) {
                         // If there's an envelope, use it
                         const envelopeInfo = audioNodes.get(info.envelope)

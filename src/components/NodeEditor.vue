@@ -85,7 +85,9 @@ const availableNodes = [
     sustain: { value: 0.45, duration: .5},
     release: { value: 0, duration: .25, constant: .1},
   }},
-  { type: 'destination', label: 'Sortie Audio', special: true }
+  { type: 'destination', label: 'Sortie Audio', special: true },
+  { type: 'mod', label: 'Modulateur', params: { type: 'square', detune: 0, freq: 10, gain: 150 } },
+
 ]
 
 function startDrag(event, nodeType) {
@@ -208,6 +210,8 @@ function finishConnecting(node, event) {
   }
   
   const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id)
+
+  console.log('finishConnection', { connectingFrom, node})
   
   if (node.type === 'destination') {
     storeAudio.connectToDestination(sourceIndex)
@@ -219,6 +223,12 @@ function finishConnecting(node, event) {
     connectingFrom.value.connections.push(node.id)
     createConnection(connectingFrom.value, node)
   } else if (connectingFrom.value.type === 'osc' && node.type === 'gain') {
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  } else if (connectingFrom.value.type === 'mod' && node.type === 'osc') {
+    console.log('connection mod vers osc', { connectingFrom, node})
     const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
     storeAudio.connectNodes(sourceIndex, targetIndex)
     connectingFrom.value.connections.push(node.id)
@@ -438,7 +448,6 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <pre>{{ storeAudio.nodes }}</pre>
   <div class="editor">
     <div class="palette">
       <div
@@ -514,13 +523,13 @@ onUnmounted(() => {
         </div>
         <div class="node-ports">
           <div
-            v-if="node.type !== 'osc'"
+            v-if="node.type !== 'mod'"
             class="port port-in"
             :id="`port-in-${node.id}`"
             @mouseup="(e) => finishConnecting(node, e)"
           ></div>
           <div
-            v-if="node.type !== 'destination'"
+            v-if="! ['destination', 'adsr'].includes(node.type)"
             class="port port-out"
             :id="`port-out-${node.id}`"
             @mousedown="(e) => startConnecting(e, node)"
@@ -707,8 +716,8 @@ onUnmounted(() => {
   transition: border-color 0.2s;
 }
 
-.port:hover::before {
-  border-color: #535bf2;
+.port-out::before {
+  border-color: #53f253;
 }
 
 .port-in {
