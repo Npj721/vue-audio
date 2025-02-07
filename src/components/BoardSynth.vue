@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useAudioStore } from '../stores/audio'
+import Swal from 'sweetalert2'
 
 const keysPressed = ref([])
 const selectedSynth = ref(null)
@@ -47,6 +48,11 @@ function deleteSynth(synthId) {
 onMounted(() => {
   window.addEventListener("keydown", handleKeyDown);
   window.addEventListener("keyup", handleKeyUp);
+  if(storeAudio.audioContext === null){
+    Swal.fire("Init").then( () => {
+      storeAudio.initAudioContext()
+    })
+  }
 });
 
 onUnmounted(() => {
