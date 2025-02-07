@@ -50,6 +50,7 @@ export const useAudioStore = defineStore('audio', () => {
 
             request.onerror = () => reject(request.error)
             request.onsuccess = () => {
+                console.log('storeAudio.nodes', { res: request.result })
                 _synthConfigurations.value = request.result
                 resolve(request.result)
             }
@@ -98,7 +99,7 @@ export const useAudioStore = defineStore('audio', () => {
         }
     }
 
-    function addNode(type, param) {
+    function addNode(type, param, position) {
       initAudioContext();
       if(_audioContext.value !== null) {
         const id = uuidV4();
@@ -107,7 +108,8 @@ export const useAudioStore = defineStore('audio', () => {
           type,
           param,
           connections: [],
-          envelope: null
+          envelope: null,
+          position
         })
         return id
       }

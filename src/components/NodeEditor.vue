@@ -113,7 +113,7 @@ function handleDrop(event) {
       })
     }
   } else {
-    const id = storeAudio.addNode(draggingNode.value.type, draggingNode.value.params)
+    const id = storeAudio.addNode(draggingNode.value.type, draggingNode.value.params, { x, y })
     nodes.value.push({
       ...draggingNode.value,
       id,
@@ -152,6 +152,9 @@ function handleNodeDrag(event) {
   const y = event.clientY - rect.top - dragOffset.value.y
   
   const node = nodes.value.find(n => n.id === activeNodeId.value)
+  if(storeAudio.selectedNode){
+    storeAudio.selectedNode.position = { x, y }
+  }
   if (node) {
     node.x = Math.max(0, Math.min(rect.width - 200, x))
     node.y = Math.max(0, Math.min(rect.height - 100, y))
@@ -350,14 +353,16 @@ function loadConfiguration(configId) {
 function performLoad(configId) {
   clearConnections()
   if (storeAudio.loadSynthConfiguration(configId)) {
+    console.log('performLoad', { nodes: storeAudio.nodes })
     nodes.value = storeAudio.nodes.map(node => ({
       ...node,
       label: availableNodes.find(n => n.type === node.type)?.label || node.type,
-      x: Math.random() * (editorContainer.value.clientWidth - 300),
-      y: Math.random() * (editorContainer.value.clientHeight - 150)
+      x: node.position.x,
+      y: node.position.y
     }))
 
     if (!nodes.value.some(n => n.type === 'destination')) {
+      
       nodes.value.push({
         ...availableNodes.find(n => n.type === 'destination'),
         id: 'destination',
@@ -373,9 +378,21 @@ function performLoad(configId) {
           const targetNode = nodes.value.find(n => n.id === targetId) ||
             (targetId === 'destination' ? nodes.value.find(n => n.id === 'destination') : null)
           if (targetNode) {
+            console.log('targetNode', { targetNode })
             createConnection(node, targetNode)
           }
         })
+        if(node.type === 'gain'){
+          console.log('type gain', { node })
+          
+          if(node.envelope !== null){
+            const targetNode = nodes.value.find(n => n.id === node.envelope)
+            if (targetNode) {
+              console.log('targetNode env', { targetNode })
+              createConnection(node, targetNode)
+            }
+          }
+        }
       })
     }, 100)
 
@@ -421,11 +438,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
-    <pre>
-      {{ storeAudio.nodes }}
-    </pre>
-  </div>
+  <pre>{{ storeAudio.nodes }}</pre>
   <div class="editor">
     <div class="palette">
       <div
@@ -524,6 +537,7 @@ onUnmounted(() => {
       />
     </div>
   </div>
+  {{ storeAudio.selectedNode }}
 </template>
 
 <style scoped>
