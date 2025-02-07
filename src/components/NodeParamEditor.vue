@@ -10,6 +10,7 @@
             :id="'param-input-' + key"
             v-model="selectedNode.param[key]"
             :type="param.type || 'number'"
+            :step="param.type !== 'number' ? '0.01' : ''"
           />
         </div>
         <button type="submit">Update</button>
