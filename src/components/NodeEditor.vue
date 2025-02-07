@@ -241,6 +241,33 @@ function clearConnections() {
   connections.value = []
 }
 
+function clearNodeConnections(node) {
+  // Remove all visual connections
+  connections.value = connections.value.filter(conn => {
+    if (conn.fromId === node.id || conn.toId === node.id) {
+      conn.line.remove()
+      return false
+    }
+    return true
+  })
+
+  // Clear connections in the node data
+  node.connections = []
+  if (node.type === 'gain') {
+    node.envelope = null
+  }
+
+  // Update other nodes that might be connected to this node
+  nodes.value.forEach(n => {
+    if (n.connections.includes(node.id)) {
+      n.connections = n.connections.filter(id => id !== node.id)
+    }
+    if (n.envelope === node.id) {
+      n.envelope = null
+    }
+  })
+}
+
 async function saveConfiguration() {
   const { value: name } = await Swal.fire({
     title: 'Save Synth Configuration',
@@ -442,13 +469,24 @@ onUnmounted(() => {
       >
         <div class="node-header">
           {{ node.label }}
-          <button 
-            v-if="node.type !== 'destination'"
-            class="delete-node-btn"
-            @click.stop="deleteNode(node.id)"
-          >
-            ×
-          </button>
+          <div class="node-actions">
+            <button 
+              v-if="node.type !== 'destination'"
+              class="clear-connections-btn"
+              @click.stop="clearNodeConnections(node)"
+              title="Clear Connections"
+            >
+              ⟲
+            </button>
+            <button 
+              v-if="node.type !== 'destination'"
+              class="delete-node-btn"
+              @click.stop="deleteNode(node.id)"
+              title="Delete Node"
+            >
+              ×
+            </button>
+          </div>
         </div>
         <div class="node-ports">
           <div
@@ -465,7 +503,6 @@ onUnmounted(() => {
           ></div>
         </div>
       </div>
-      {{ activeNodeId }}
       <NodeParamEditor 
         v-if="activeNodeId"
         :style="{
@@ -657,11 +694,33 @@ onUnmounted(() => {
   margin-left: 10px;
 }
 
-.delete-node-btn {
+.node-actions {
   position: absolute;
   right: 5px;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  gap: 5px;
+}
+
+.clear-connections-btn {
+  background: none;
+  border: none;
+  color: #646cff;
+  font-size: 16px;
+  padding: 0 5px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.clear-connections-btn:hover {
+  opacity: 1;
+}
+
+.delete-node-btn {
+  position: static;
+  transform: none;
   background: none;
   border: none;
   color: #ff4444;
