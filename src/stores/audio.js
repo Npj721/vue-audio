@@ -160,6 +160,16 @@ export const useAudioStore = defineStore('audio', () => {
         }
     }
 
+    function removeConnection(fromId, toId) {
+        const sourceNode = _nodes.value.find(n => n.id === fromId)
+        if (sourceNode) {
+            sourceNode.connections = sourceNode.connections.filter(id => id !== toId && id !== 'destination')
+            if (sourceNode.type === 'gain' && sourceNode.envelope === toId) {
+                sourceNode.envelope = null
+            }
+        }
+    }
+
     async function saveSynthConfiguration(name) {
         const id = uuidV4()
         const synthConfig = {
@@ -232,7 +242,8 @@ export const useAudioStore = defineStore('audio', () => {
                 return osc
             case 'gain':
                 const gain = _audioContext.value.createGain()
-                gain.gain.value = 0
+                // Set initial gain value from the node parameters
+                gain.gain.value = nodeInfo.param.gain || 0
                 return gain
             case 'adsr':
                 return {
@@ -282,16 +293,22 @@ export const useAudioStore = defineStore('audio', () => {
                 if (info.type === 'osc') {
                     node.frequency.value = frequency
                     node.start()
-                } else if (info.type === 'gain' && info.envelope) {
-                    const envelopeInfo = audioNodes.get(info.envelope)
-                    if (envelopeInfo) {
-                        const env = envelopeInfo.node
-                        node.gain.cancelScheduledValues(currentTime)
-                        node.gain.setValueAtTime(env.start.value * info.param.gain, currentTime)
-                        node.gain.setTargetAtTime(env.attack.value * info.param.gain, currentTime + env.attack.duration, env.attack.constant || .1)
-                        node.gain.setTargetAtTime(env.decay.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration, env.decay.constant || .1)
-                        node.gain.setTargetAtTime(env.sustain.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
-                        node.gain.setTargetAtTime(env.release.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
+                } else if (info.type === 'gain') {
+                    if (info.envelope) {
+                        // If there's an envelope, use it
+                        const envelopeInfo = audioNodes.get(info.envelope)
+                        if (envelopeInfo) {
+                            const env = envelopeInfo.node
+                            node.gain.cancelScheduledValues(currentTime)
+                            node.gain.setValueAtTime(env.start.value * info.param.gain, currentTime)
+                            node.gain.setTargetAtTime(env.attack.value * info.param.gain, currentTime + env.attack.duration, env.attack.constant || .1)
+                            node.gain.setTargetAtTime(env.decay.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration, env.decay.constant || .1)
+                            node.gain.setTargetAtTime(env.sustain.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
+                            node.gain.setTargetAtTime(env.release.value * info.param.gain, currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
+                        }
+                    } else {
+                        // If no envelope, simply set the gain value directly
+                        node.gain.setValueAtTime(info.param.gain, currentTime)
                     }
                 }
             })
@@ -311,12 +328,20 @@ export const useAudioStore = defineStore('audio', () => {
             playingNodes.value[frequency].forEach(({ audioNodes }) => {
                 audioNodes.forEach(({ node, info }) => {
                     if (info.type === 'osc') {
-                        node.stop(currentTime)
-                    } else if (info.type === 'gain' && info.envelope) {
-                        const envelopeInfo = audioNodes.get(info.envelope)
-                        if (envelopeInfo) {
-                            const env = envelopeInfo.node
-                            node.gain.setValueAtTime(0, currentTime)
+                        node.stop(currentTime + 0.1) // Add a small delay to avoid clicks
+                    } else if (info.type === 'gain') {
+                        if (info.envelope) {
+                            // If there's an envelope, use its release
+                            const envelopeInfo = audioNodes.get(info.envelope)
+                            if (envelopeInfo) {
+                                const env = envelopeInfo.node
+                                node.gain.cancelScheduledValues(currentTime)
+                                node.gain.setTargetAtTime(0, currentTime, env.release.constant || 0.1)
+                            }
+                        } else {
+                            // If no envelope, simply ramp to zero quickly
+                            node.gain.cancelScheduledValues(currentTime)
+                            node.gain.setTargetAtTime(0, currentTime, 0.01)
                         }
                     }
                 })
@@ -334,12 +359,19 @@ export const useAudioStore = defineStore('audio', () => {
             
             frequencyNodes.forEach(({ audioNodes }) => {
                 audioNodes.forEach(({ node, info }) => {
-                    if (info.type === 'gain' && info.envelope) {
-                        const envelopeInfo = audioNodes.get(info.envelope)
-                        if (envelopeInfo) {
-                            const env = envelopeInfo.node
+                    if (info.type === 'gain') {
+                        if (info.envelope) {
+                            // If there's an envelope, use its release
+                            const envelopeInfo = audioNodes.get(info.envelope)
+                            if (envelopeInfo) {
+                                const env = envelopeInfo.node
+                                node.gain.cancelScheduledValues(currentTime)
+                                node.gain.setTargetAtTime(0, currentTime, env.release.constant || 0.1)
+                            }
+                        } else {
+                            // If no envelope, ramp to zero quickly
                             node.gain.cancelScheduledValues(currentTime)
-                            node.gain.setTargetAtTime(env.release.value, currentTime + env.release.duration, env.release.constant || .1)
+                            node.gain.setTargetAtTime(0, currentTime, 0.01)
                         }
                     }
                 })
@@ -350,7 +382,7 @@ export const useAudioStore = defineStore('audio', () => {
                             node.stop()
                         }
                     })
-                }, (delay + 2) * 1000)
+                }, (delay + 0.1) * 1000) // Shorter delay for cleaner release
             })
 
             setTimeout(() => {
@@ -360,7 +392,7 @@ export const useAudioStore = defineStore('audio', () => {
                         delete playingNodes.value[frequency]
                     }
                 }
-            }, (delay + 2) * 1000)
+            }, (delay + 0.2) * 1000)
         }
     }
 
@@ -378,6 +410,7 @@ export const useAudioStore = defineStore('audio', () => {
         connectNodes,
         connectToDestination,
         connectGainToEnveloppe,
+        removeConnection,
         press,
         release,
         saveSynthConfiguration,

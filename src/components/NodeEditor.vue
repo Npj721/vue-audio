@@ -46,6 +46,35 @@ function deleteNode(nodeId) {
   storeAudio.removeNode(nodeId)
 }
 
+function deleteConnection(connection) {
+  if (!connection || !connection.line) return
+  
+  // Remove the connection line
+  connection.line.remove()
+  
+  // Remove from connections array
+  connections.value = connections.value.filter(conn => conn !== connection)
+  
+  // Remove from source node's connections in the store
+  const sourceNode = nodes.value.find(n => n.id === connection.fromId)
+  if (sourceNode) {
+    sourceNode.connections = sourceNode.connections.filter(connId => 
+      connId !== connection.toId && connId !== 'destination'
+    )
+    
+    // If it's a gain-to-envelope connection, clear the envelope reference
+    if (sourceNode.type === 'gain') {
+      const targetNode = nodes.value.find(n => n.id === connection.toId)
+      if (targetNode && targetNode.type === 'adsr') {
+        sourceNode.envelope = null
+      }
+    }
+  }
+  
+  // Update the store
+  storeAudio.removeConnection(connection.fromId, connection.toId)
+}
+
 const availableNodes = [
   { type: 'osc', label: 'Oscillateur', params: { type: 'sawtooth', detune: 0 } },
   { type: 'gain', label: 'Gain', params: { gain: 0.25 } },
@@ -133,7 +162,6 @@ function handleNodeDrag(event) {
 
 function stopNodeDrag() {
   isDragging.value = false
-  //activeNodeId.value = null
 }
 
 function startConnecting(event, node) {
@@ -202,7 +230,7 @@ function finishConnecting(node, event) {
 }
 
 function createConnection(fromNode, toNode) {
-  if (!LeaderLine) return
+  if (!LeaderLine || !fromNode || !toNode) return
 
   const startElement = document.getElementById(`port-out-${fromNode.id}`)
   const endElement = document.getElementById(`port-in-${toNode.id}`)
@@ -220,52 +248,41 @@ function createConnection(fromNode, toNode) {
       endSocket: 'left'
     }
   )
-  
-  connections.value.push({
+
+  const connection = {
     line,
     fromId: fromNode.id,
     toId: toNode.id
-  })
+  }
+  
+  // Add right-click event listener to the line element
+  setTimeout(() => {
+    if (line.element) {
+      line.element.addEventListener('contextmenu', (e) => {
+        e.preventDefault()
+        deleteConnection(connection)
+      })
+    }
+  }, 0)
+  
+  connections.value.push(connection)
 }
 
 function updateConnectionLines() {
   connections.value.forEach(connection => {
-    connection.line.position()
+    if (connection.line) {
+      connection.line.position()
+    }
   })
 }
 
 function clearConnections() {
   connections.value.forEach(connection => {
-    connection.line.remove()
+    if (connection.line) {
+      connection.line.remove()
+    }
   })
   connections.value = []
-}
-
-function clearNodeConnections(node) {
-  // Remove all visual connections
-  connections.value = connections.value.filter(conn => {
-    if (conn.fromId === node.id || conn.toId === node.id) {
-      conn.line.remove()
-      return false
-    }
-    return true
-  })
-
-  // Clear connections in the node data
-  node.connections = []
-  if (node.type === 'gain') {
-    node.envelope = null
-  }
-
-  // Update other nodes that might be connected to this node
-  nodes.value.forEach(n => {
-    if (n.connections.includes(node.id)) {
-      n.connections = n.connections.filter(id => id !== node.id)
-    }
-    if (n.envelope === node.id) {
-      n.envelope = null
-    }
-  })
 }
 
 async function saveConfiguration() {
@@ -404,6 +421,11 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <div>
+    <pre>
+      {{ storeAudio.nodes }}
+    </pre>
+  </div>
   <div class="editor">
     <div class="palette">
       <div
@@ -469,24 +491,13 @@ onUnmounted(() => {
       >
         <div class="node-header">
           {{ node.label }}
-          <div class="node-actions">
-            <button 
-              v-if="node.type !== 'destination'"
-              class="clear-connections-btn"
-              @click.stop="clearNodeConnections(node)"
-              title="Clear Connections"
-            >
-              ⟲
-            </button>
-            <button 
-              v-if="node.type !== 'destination'"
-              class="delete-node-btn"
-              @click.stop="deleteNode(node.id)"
-              title="Delete Node"
-            >
-              ×
-            </button>
-          </div>
+          <button 
+            v-if="node.type !== 'destination'"
+            class="delete-node-btn"
+            @click.stop="deleteNode(node.id)"
+          >
+            ×
+          </button>
         </div>
         <div class="node-ports">
           <div
@@ -694,33 +705,11 @@ onUnmounted(() => {
   margin-left: 10px;
 }
 
-.node-actions {
+.delete-node-btn {
   position: absolute;
   right: 5px;
   top: 50%;
   transform: translateY(-50%);
-  display: flex;
-  gap: 5px;
-}
-
-.clear-connections-btn {
-  background: none;
-  border: none;
-  color: #646cff;
-  font-size: 16px;
-  padding: 0 5px;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.clear-connections-btn:hover {
-  opacity: 1;
-}
-
-.delete-node-btn {
-  position: static;
-  transform: none;
   background: none;
   border: none;
   color: #ff4444;
