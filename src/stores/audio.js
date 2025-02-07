@@ -207,6 +207,7 @@ export const useAudioStore = defineStore('audio', () => {
         if (_currentConfigId.value === id) {
             _currentConfigId.value = null
         }
+        return true
     }
 
     function clearCurrentConfiguration() {

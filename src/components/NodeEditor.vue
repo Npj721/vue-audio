@@ -4,6 +4,7 @@ import { useAudioStore } from '../stores/audio'
 import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import NodeParamEditor from './NodeParamEditor.vue'
+import BoardSynth from './BoardSynth.vue'
 
 const storeAudio = useAudioStore()
 const editorContainer = ref(null)
@@ -360,6 +361,37 @@ function loadConfiguration(configId) {
   }
 }
 
+function deleteConfiguration(configId) {
+  if (nodes.value.length > 0) {
+    Swal.fire({
+      title: 'Delete Configuration',
+      text: 'Delete a new configuration will clear your current work. Are you sure?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Delete'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        performDelete(configId)
+      }
+    })
+  } else {
+    performDelete(configId)
+  }
+}
+
+function performDelete(configId) {
+  clearConnections()
+  if(storeAudio.deleteSynthConfiguration(configId)){
+    Swal.fire({
+      title: 'Configuration Deleted!',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    })
+  }
+}
+
 function performLoad(configId) {
   clearConnections()
   if (storeAudio.loadSynthConfiguration(configId)) {
@@ -448,6 +480,9 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <div v-if="false">
+    <BoardSynth></BoardSynth>
+  </div>
   <div class="editor">
     <div class="palette">
       <div
@@ -482,6 +517,12 @@ onUnmounted(() => {
               @click="loadConfiguration(config.id)"
             >
               Load
+            </button>
+            <button 
+              class="action-button load-button"
+              @click="deleteConfiguration(config.id)"
+            >
+              Delete
             </button>
           </div>
         </div>

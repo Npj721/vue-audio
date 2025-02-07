@@ -3,6 +3,7 @@
     <h3>Node Parameters</h3>
     <form @submit.prevent="updateParameters">
       <div v-if="selectedNode" :key="selectedNode.id">
+        {{ selectedNode }}
         <label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>
         <div v-for="(param, key) in selectedNode.param" :key="key">
           <label :for="'param-input-' + key">{{ key }}:</label>
@@ -10,7 +11,7 @@
             :id="'param-input-' + key"
             v-model="selectedNode.param[key]"
             :type="param.type || 'number'"
-            :step="param.type !== 'number' ? '0.01' : ''"
+            :step="param.type == 'number' ? '0.01' : ''"
           />
         </div>
         <button type="submit">Update</button>
