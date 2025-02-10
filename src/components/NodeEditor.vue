@@ -235,6 +235,13 @@ function finishConnecting(node, event) {
     connectingFrom.value.connections.push(node.id)
     createConnection(connectingFrom.value, node)
   }
+  else if (connectingFrom.value.type === 'mod' && node.type === 'mod') {
+    console.log('connection mod vers mod', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
   
   if (tempLine) {
     tempLine.remove()
@@ -570,7 +577,6 @@ onUnmounted(() => {
         </div>
         <div class="node-ports">
           <div
-            v-if="node.type !== 'mod'"
             class="port port-in"
             :id="`port-in-${node.id}`"
             @mouseup="(e) => finishConnecting(node, e)"

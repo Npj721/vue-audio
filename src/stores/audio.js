@@ -310,9 +310,11 @@ export const useAudioStore = defineStore('audio', () => {
                     } else {
                         const destNode = audioNodes.get(destId)
                         if (destNode) {
-                            console.log('connection', { node, destNode })
-                            if(info.type === 'mod' && destNode.type === 'osc'){
+                            console.log('connection', { node, destNode,   destType: destNode.info.type })
+                            if(info.type === 'mod' && destNode.info.type === 'osc'){
                                 node.gain.connect(destNode.node.frequency)
+                            }else if(info.type === 'mod' && destNode.info.type === 'mod'){
+                                node.gain.connect(destNode.node.osc.frequency)
                             }else{
                                 node.connect(destNode.node)
                             }
