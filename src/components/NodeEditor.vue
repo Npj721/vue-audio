@@ -242,6 +242,13 @@ function finishConnecting(node, event) {
     connectingFrom.value.connections.push(node.id)
     createConnection(connectingFrom.value, node)
   }
+  else if (connectingFrom.value.type === 'mod' && node.type === 'adsr') {
+    console.log('connection mod vers adsr', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
   
   if (tempLine) {
     tempLine.remove()
@@ -480,6 +487,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  {{ storeAudio.nodes }}
   <div v-if="false">
     <BoardSynth></BoardSynth>
   </div>
@@ -604,8 +612,8 @@ onUnmounted(() => {
 }
 
 .palette {
-  width: 200px;
-  max-width: 200px;
+  width: 300px;
+  max-width: 300px;
   background: #2a2a2a;
   padding: 10px;
   border-radius: 8px;

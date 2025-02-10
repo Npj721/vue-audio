@@ -315,7 +315,24 @@ export const useAudioStore = defineStore('audio', () => {
                                 node.gain.connect(destNode.node.frequency)
                             }else if(info.type === 'mod' && destNode.info.type === 'mod'){
                                 node.gain.connect(destNode.node.osc.frequency)
-                            }else{
+                            }else if(info.type === 'mod' && destNode.info.type === 'adsr'){
+                                /*node.envelope = destId
+                                node.tamaman = 'salope'*/
+                                
+                                const env = destNode.info.param
+                                
+                                
+                                console.log('mod <> adsr', { node, destNode, env, start: env.start.value })
+
+                                node.gain.gain.cancelScheduledValues(currentTime)
+                                node.gain.gain.setValueAtTime(env.start.value , currentTime)
+                                node.gain.gain.setTargetAtTime(env.attack.value , currentTime + env.attack.duration, env.attack.constant || .1)
+                                node.gain.gain.setTargetAtTime(env.decay.value , currentTime + env.attack.duration + env.decay.duration, env.decay.constant || .1)
+                                node.gain.gain.setTargetAtTime(env.sustain.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
+                                node.gain.gain.setTargetAtTime(env.release.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
+                                
+                            }
+                            else{
                                 node.connect(destNode.node)
                             }
                             
@@ -342,6 +359,7 @@ export const useAudioStore = defineStore('audio', () => {
                         const envelopeInfo = audioNodes.get(info.envelope)
                         if (envelopeInfo) {
                             const env = envelopeInfo.node
+                            console.log('dfgdfg', { node, env, envelopeInfo, tamaman: node.tamaman})
                             node.gain.cancelScheduledValues(currentTime)
                             node.gain.setValueAtTime(env.start.value * info.param.gain, currentTime)
                             node.gain.setTargetAtTime(env.attack.value * info.param.gain, currentTime + env.attack.duration, env.attack.constant || .1)
