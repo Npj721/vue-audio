@@ -312,7 +312,7 @@ export const useAudioStore = defineStore('audio', () => {
                         if (destNode) {
                             console.log('connection', { node, destNode })
                             if(info.type === "mod"){
-                                node.gain.connect(destNode.node.detune)
+                                node.gain.connect(destNode.node.frequency)
                             }else{
                                 node.connect(destNode.node)
                             }
