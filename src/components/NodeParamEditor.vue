@@ -1,18 +1,53 @@
 <template>
+  <div v-if="selectedNode" :key="selectedNode.id">
+    {{  selectedNode.type }}
+    <pre>
+      {{  selectedNode.param }}
+    </pre>
+  </div>
   <div class="node-param-editor" @click.stop>
-    <h3>Node Parameters</h3>
+    <h3>Params</h3>
     <form @submit.prevent="updateParameters">
       <div v-if="selectedNode" :key="selectedNode.id">
-        <label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>
+        <div v-if="selectedNode.type === 'osc'">
+          <label :for="'param-input-type'">Type</label>
+          <select id="param-input-type">
+            <option :selected="selectedNode.param.type === 'sine'">
+              Sine
+            </option>
+            <option :selected="selectedNode.param.type === 'triangle'">
+              Triangle
+            </option>
+            <option :selected="selectedNode.param.type === 'square'">
+              Square
+            </option>
+            <option :selected="selectedNode.param.type === 'sawtooth'">
+              Sawtooth
+            </option>
+
+          </select>
+          <label :for="'param-input-detune'">Detune</label>
+          <input id='param-input-detune' type="number" step="0.01"  v-model="selectedNode.param.detune">
+        </div>
+
+
+        <!--<label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>
         <div v-for="(param, key) in selectedNode.param" :key="key">
           
           <div v-if="typeof param.value === 'undefined'">
-            <label :for="'param-input-' + key">{{ key }}:</label>
-            <input 
-              :id="'param-input-' + key"
-              v-model="selectedNode.param[key]"
+
+            <div v-if="selectedNode.type === 'osc'">
               
-            />
+            </div>
+            <div v-else>
+              <label :for="'param-input-' + key">{{ key }}:</label>
+              <input 
+                :id="'param-input-' + key"
+                v-model="selectedNode.param[key]"
+                
+              />
+            </div>
+            
           </div>
           <div v-else>
             {{ key }}
@@ -45,7 +80,8 @@
           </div>
           
         </div>
-        <button type="submit">Update</button>
+        -->
+        <button type="submit">🆗</button>
       </div>
     </form>
   </div>
