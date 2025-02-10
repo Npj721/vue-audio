@@ -122,6 +122,7 @@
               </tr>
             </tbody>
           </table>
+          Total : {{ (selectedNode.param.attack.duration || 0) + (selectedNode.param.decay.duration || 0) + (selectedNode.param.sustain.duration || 0) + (selectedNode.param.release.duration || 0)  }}
         </div>
 
         <div v-if="selectedNode.type === 'delay'">
