@@ -24,7 +24,6 @@
             <option :selected="selectedNode.param.type === 'sawtooth'">
               Sawtooth
             </option>
-
           </select>
           <label :for="'param-input-detune'">Detune</label>
           <input id='param-input-detune' type="number" step="0.01"  v-model="selectedNode.param.detune">
@@ -46,7 +45,6 @@
             <option :selected="selectedNode.param.type === 'sawtooth'">
               Sawtooth
             </option>
-
           </select>
           <label :for="'param-input-detune'">Detune</label>
           <input id='param-input-detune' type="number" step="0.01"  v-model="selectedNode.param.detune">
@@ -54,7 +52,12 @@
           <input id='param-input-freq' type="number" step="0.01"  v-model="selectedNode.param.freq">
           <label :for="'param-input-gain'">Gain</label>
           <input id='param-input-gain' type="number" step="0.01"  v-model="selectedNode.param.gain">
+        </div>
 
+        <div v-if="selectedNode.type === 'gain'">
+          <h3>Gain</h3>
+          <label :for="'param-input-gain'">Gain</label>
+          <input id='param-input-gain' type="number" step="0.01"  v-model="selectedNode.param.gain">
         </div>
 
 
