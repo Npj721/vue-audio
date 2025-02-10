@@ -7,7 +7,6 @@
         <div v-for="(param, key) in selectedNode.param" :key="key">
           
           <div v-if="typeof param.value === 'undefined'">
-            pas obj 
             <label :for="'param-input-' + key">{{ key }}:</label>
             <input 
               :id="'param-input-' + key"
@@ -16,12 +15,33 @@
             />
           </div>
           <div v-else>
-            <label :for="'param-input-' + key">{{ key }}:</label>
-            <input 
-              :id="'param-input-' + key"
-              v-model="selectedNode.param[key].value"
-              
-            />
+            {{ key }}
+            <table>
+              <thead>
+                <tr>
+                  <th>Gain</th>
+                  <th>Durée</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <input 
+                      :id="'param-input-' + key + '-value'"
+                      v-model="selectedNode.param[key].value"
+                      
+                    />
+                  </td>
+                  <td>
+                    <input 
+                      :id="'param-input-' + key + '-duration'"
+                      v-model="selectedNode.param[key].duration"
+                      
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
           
         </div>
