@@ -592,20 +592,20 @@ onUnmounted(() => {
       
     </div>
   </div>
-  {{ storeAudio.selectedNode }}
 </template>
 
 <style scoped>
 .editor {
   color: white;
   display: flex;
-  gap: 20px;
+  gap: 10px;
   height: 800px;
   margin-bottom: 2rem;
 }
 
 .palette {
   width: 200px;
+  max-width: 200px;
   background: #2a2a2a;
   padding: 10px;
   border-radius: 8px;
