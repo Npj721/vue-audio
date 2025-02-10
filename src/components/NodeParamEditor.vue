@@ -131,6 +131,21 @@
           <input id='param-input-delay' type="number" step="0.01"  v-model="selectedNode.param.delay">
         </div>
 
+        <div v-if="selectedNode.type === 'superosc'">
+          <h3>Super Oscillateur</h3>
+          <label :for="'param-input-nombre'">Nombre d'oscillateurs</label>
+          <input id='param-input-nombre' type="number" v-model="selectedNode.param.nombre">
+          
+          <label :for="'param-input-maskDetune'">Mask Detune (séparé par ;)</label>
+          <input id='param-input-maskDetune' type="text" v-model="selectedNode.param.maskDetune">
+          
+          <label :for="'param-input-maskGain'">Mask Gain (séparé par ;)</label>
+          <input id='param-input-maskGain' type="text" v-model="selectedNode.param.maskGain">
+          
+          <label :for="'param-input-maskType'">Mask Type (séparé par ;)</label>
+          <input id='param-input-maskType' type="text" v-model="selectedNode.param.maskType">
+        </div>
+
 
 
 

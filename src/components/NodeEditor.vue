@@ -89,7 +89,12 @@ const availableNodes = [
   { type: 'destination', label: 'Sortie Audio', special: true },
   { type: 'mod', label: 'Modulateur', params: { type: 'square', detune: 0, freq: 10, gain: 150 } },
   { type: 'delay', label: 'Delay', params: {delay: .1 } },
-
+  { type: 'superosc', label: 'Super Oscillateur', params: { 
+    nombre: 3,
+    maskDetune: '-1200;0;1200',
+    maskGain: '0.3;0.3;0.3',
+    maskType: 'triangle;triangle;triangle'
+  }},
 ]
 
 const searchSynth = ref('')
@@ -267,7 +272,14 @@ function finishConnecting(node, event) {
     createConnection(connectingFrom.value, node)
   }
   else if (connectingFrom.value.type === 'gain' && node.type === 'gain') {
-    console.log('connection mod vers adsr', { connectingFrom, node})
+    console.log('connection gain vers gain', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
+  else if (connectingFrom.value.type === 'superosc' && node.type === 'gain') {
+    console.log('connection superosc vers gain', { connectingFrom, node})
     const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
     storeAudio.connectNodes(sourceIndex, targetIndex)
     connectingFrom.value.connections.push(node.id)

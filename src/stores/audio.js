@@ -244,6 +244,32 @@ export const useAudioStore = defineStore('audio', () => {
                 osc.detune.value = nodeInfo.param.detune || 0
                 return osc
 
+            case 'superosc':
+                    const nombre = parseInt(nodeInfo.param.nombre) || 1
+                    const detuneValues = nodeInfo.param.maskDetune.split(';')
+                    const gainValues = nodeInfo.param.maskGain.split(';')
+                    const typeValues = nodeInfo.param.maskType.split(';')
+                    
+                    console.log({nombre, detuneValues, gainValues, typeValues})
+                    const oscillators = []
+                    const gains = []
+                    
+                    for (let i = 0; i < nombre; i++) {
+                        const osc = _audioContext.value.createOscillator()
+                        const gain = _audioContext.value.createGain()
+                        
+                        osc.type = typeValues[i] || 'sine'
+                        osc.detune.value = parseFloat(detuneValues[i]) || 0
+                        gain.gain.value = 0.2;//parseFloat(gainValues[i]) || 1
+                        
+                        console.log({ type: typeValues[i] || 'sine', detune: parseFloat(detuneValues[i]) || 0, gain: parseFloat(gainValues[i]) || 1})
+                        osc.connect(gain)
+                        oscillators.push(osc)
+                        gains.push(gain)
+                    }
+                    
+            return { type: 'superosc', oscillators, gains }
+
             case 'mod':
                 const oscmod = _audioContext.value.createOscillator()
                 oscmod.type = nodeInfo.param.type || 'sine'
@@ -310,13 +336,22 @@ export const useAudioStore = defineStore('audio', () => {
                     console.log('press node connection', { destId })
 
                     if (destId === 'destination') {
-                        node.connect(_audioContext.value.destination)
+                        //node.connect(_audioContext.value.destination)
+                        if (info.type === 'superosc') {
+                            node.gains.forEach(gain => gain.connect(_audioContext.value.destination))
+                        } else {
+                            node.connect(_audioContext.value.destination)
+                        }
                     } else {
                         const destNode = audioNodes.get(destId)
                         if (destNode) {
                             console.log('connection', { node, destNode,   destType: destNode.info.type })
                             if(info.type === 'mod' && destNode.info.type === 'osc'){
                                 node.gain.connect(destNode.node.frequency)
+                            }else if(info.type === 'mod' && destNode.info.type === 'superosc'){
+                                destNode.node.oscillators.forEach(osc => {
+                                    node.gain.connect(osc.frequency)
+                                })
                             }else if(info.type === 'mod' && destNode.info.type === 'mod'){
                                 node.gain.connect(destNode.node.osc.frequency)
                             }else if(info.type === 'mod' && destNode.info.type === 'adsr'){
@@ -335,6 +370,9 @@ export const useAudioStore = defineStore('audio', () => {
                                 node.gain.gain.setTargetAtTime(env.sustain.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
                                 node.gain.gain.setTargetAtTime(env.release.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
                                 
+                            }
+                            else if (info.type === 'superosc') {
+                                node.gains.forEach(gain => gain.connect(destNode.node))
                             }
                             else{
                                 node.connect(destNode.node)
@@ -355,6 +393,11 @@ export const useAudioStore = defineStore('audio', () => {
                     node.osc.start()
 
                     console.log('Set frequencies and start oscillators', {node, info})
+                }else if (info.type === 'superosc') {
+                    node.oscillators.forEach(osc => {
+                        osc.frequency.value = frequency
+                        osc.start()
+                    })
                 }
                 
                 else if (info.type === 'gain') {
@@ -446,6 +489,8 @@ export const useAudioStore = defineStore('audio', () => {
                         if (info.type === 'osc') {
                             console.log('osc stopped ! ', { node, info })
                             node.stop()
+                        }else if (info.type === 'superosc') {
+                            node.oscillators.forEach(osc => osc.stop())
                         }
                     })
                 }, (delay + 0.1) * 1000) // Shorter delay for cleaner release
