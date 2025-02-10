@@ -6,10 +6,10 @@
     </pre>
   </div>
   <div class="node-param-editor" @click.stop>
-    <h3>Params</h3>
     <form @submit.prevent="updateParameters">
       <div v-if="selectedNode" :key="selectedNode.id">
         <div v-if="selectedNode.type === 'osc'">
+          <h3>Osc</h3>
           <label :for="'param-input-type'">Type</label>
           <select id="param-input-type">
             <option :selected="selectedNode.param.type === 'sine'">
@@ -29,6 +29,34 @@
           <label :for="'param-input-detune'">Detune</label>
           <input id='param-input-detune' type="number" step="0.01"  v-model="selectedNode.param.detune">
         </div>
+
+        <div v-if="selectedNode.type === 'mod'">
+          <h3>Osc</h3>
+          <label :for="'param-input-type'">Type</label>
+          <select id="param-input-type">
+            <option :selected="selectedNode.param.type === 'sine'">
+              Sine
+            </option>
+            <option :selected="selectedNode.param.type === 'triangle'">
+              Triangle
+            </option>
+            <option :selected="selectedNode.param.type === 'square'">
+              Square
+            </option>
+            <option :selected="selectedNode.param.type === 'sawtooth'">
+              Sawtooth
+            </option>
+
+          </select>
+          <label :for="'param-input-detune'">Detune</label>
+          <input id='param-input-detune' type="number" step="0.01"  v-model="selectedNode.param.detune">
+          <label :for="'param-input-freq'">Freq</label>
+          <input id='param-input-freq' type="number" step="0.01"  v-model="selectedNode.param.freq">
+          <label :for="'param-input-gain'">Gain</label>
+          <input id='param-input-gain' type="number" step="0.01"  v-model="selectedNode.param.gain">
+
+        </div>
+
 
 
         <!--<label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>
