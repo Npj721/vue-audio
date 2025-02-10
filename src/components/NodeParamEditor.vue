@@ -1,10 +1,4 @@
 <template>
-  <div v-if="selectedNode" :key="selectedNode.id">
-    {{  selectedNode.type }}
-    <pre>
-      {{  selectedNode.param }}
-    </pre>
-  </div>
   <div class="node-param-editor" @click.stop>
     <form @submit.prevent="updateParameters">
       <div v-if="selectedNode" :key="selectedNode.id">
