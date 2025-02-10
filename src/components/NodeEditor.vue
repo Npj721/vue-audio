@@ -485,6 +485,16 @@ onUnmounted(() => {
   </div>
   <div class="editor">
     <div class="palette">
+      <NodeParamEditor 
+        v-if="storeAudio.selectedNode"
+        :style="{
+          position: 'relative',
+          left: '0px',
+          top: '0px',
+          width: '90%'
+        }"
+      />
+
       <div
         v-for="node in availableNodes"
         :key="node.type"
@@ -495,14 +505,7 @@ onUnmounted(() => {
         {{ node.label }}
       </div>
 
-      <NodeParamEditor 
-        v-if="storeAudio.selectedNode"
-        :style="{
-          position: 'absolute',
-          left: '0px',
-          top: '0px',
-        }"
-      />
+      
       
       <div class="synth-actions">
         <button 
