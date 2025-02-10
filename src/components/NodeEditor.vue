@@ -487,7 +487,8 @@ onUnmounted(() => {
           width: '90%'
         }"
       />
-
+      <h3>Noeuds</h3>
+      
       <div
         v-for="node in availableNodes"
         :key="node.type"
@@ -506,11 +507,11 @@ onUnmounted(() => {
           class="action-button save-button"
           @click="saveConfiguration"
         >
-          Save Configuration
+          Sauver
         </button>
 
         <div v-if="storeAudio.synthConfigurations.length > 0" class="load-section">
-          <h3>Load Configuration</h3>
+          <h3>Synthés</h3>
           <div 
             v-for="config in storeAudio.synthConfigurations" 
             :key="config.id"
@@ -521,7 +522,7 @@ onUnmounted(() => {
               class="action-button load-button"
               @click="loadConfiguration(config.id)"
             >
-              Load
+            ⬆️
             </button>
             <button 
               class="action-button delete-button"
@@ -628,10 +629,8 @@ onUnmounted(() => {
 }
 
 .action-button {
-  width: 100%;
-  padding: 10px;
+  width: '64px';
   border: none;
-  border-radius: 4px;
   color: white;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -658,8 +657,8 @@ onUnmounted(() => {
 
 .synth-config-item {
   background: #3a3a3a;
-  padding: 10px;
-  margin-bottom: 8px;
+  padding: 2px;
+  margin-bottom: 2px;
   border-radius: 4px;
   display: flex;
   justify-content: space-between;
@@ -668,18 +667,16 @@ onUnmounted(() => {
 }
 
 .load-button {
-  background: #4a4a4a;
-  padding: 4px 8px;
+  background: #0d3503;
   font-size: 0.75em;
 }
 
 .load-button:hover {
-  background: #5a5a5a;
+  background: #1ecf07;
 }
 
 .delete-button {
   background: #790808;
-  padding: 4px 8px;
   font-size: 0.75em;
 }
 
