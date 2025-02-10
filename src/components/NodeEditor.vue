@@ -92,6 +92,8 @@ const availableNodes = [
 
 ]
 
+const searchSynth = ref('')
+
 function startDrag(event, nodeType) {
   draggingNode.value = { ...availableNodes.find(n => n.type === nodeType) }
   event.dataTransfer.setData('text/plain', nodeType)
@@ -477,6 +479,7 @@ function performLoad(configId) {
 }
 
 const selectedNode = computed(() => storeAudio.selectedNode)
+const searchConfiguration = computed(() => storeAudio.synthConfigurations.filter(item => { return item.name.includes(searchSynth.value)})) 
 
 watch(
   () => storeAudio.selectedNode,
@@ -553,26 +556,29 @@ onUnmounted(() => {
         </button>
 
         <div v-if="storeAudio.synthConfigurations.length > 0" class="load-section">
-          <h3>Synthés</h3>
-          <div 
-            v-for="config in storeAudio.synthConfigurations" 
-            :key="config.id"
-            class="synth-config-item"
-             @click="loadConfiguration(config.id)"
-          >
-            <div class="action-lib" >{{ config.name }}</div>
-            <button 
-              class="action-button load-button"
+          <h3>Synthés</h3> <input type="text" v-model="searchSynth">
+          <div style="max-height:232px;overflow: auto;">
+              <div 
+              v-for="config in searchConfiguration" 
+              :key="config.id"
+              class="synth-config-item"
               @click="loadConfiguration(config.id)"
             >
-            ⬆️
-            </button>
-            <button 
-              class="action-button delete-button"
-              @click="deleteConfiguration(config.id)"
-            >
-            🗑️
-            </button>
+            
+              <div class="action-lib" >{{ config.name }}</div>
+              <button 
+                class="action-button load-button"
+                @click="loadConfiguration(config.id)"
+              >
+              ⬆️
+              </button>
+              <button 
+                class="action-button delete-button"
+                @click="deleteConfiguration(config.id)"
+              >
+              🗑️
+              </button>
+            </div>
           </div>
         </div>
       </div>
