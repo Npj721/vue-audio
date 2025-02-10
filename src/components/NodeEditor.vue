@@ -437,13 +437,6 @@ function performLoad(configId) {
         }
       })
     }, 100)
-
-    Swal.fire({
-      title: 'Configuration Loaded!',
-      icon: 'success',
-      timer: 1500,
-      showConfirmButton: false
-    })
   }
 }
 
