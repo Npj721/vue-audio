@@ -266,10 +266,10 @@ export const useAudioStore = defineStore('audio', () => {
             case 'adsr':
                 return {
                     start: nodeInfo.param.start || { value: 0 },
-                    attack: nodeInfo.param.attack || { value: 0.7, duration: .15, constant:1 },
-                    decay: nodeInfo.param.decay || { value: 0.5, duration: .25, constant:1 },
-                    sustain: nodeInfo.param.sustain || { value: 0.45, duration: .5, constant:1 },
-                    release: nodeInfo.param.release || { value: 0.0000001, duration: .5, constant:1 }
+                    attack: nodeInfo.param.attack || { value: 0.7, duration: .15, constant:.1 },
+                    decay: nodeInfo.param.decay || { value: 0.5, duration: .25, constant:.1 },
+                    sustain: nodeInfo.param.sustain || { value: 0.45, duration: .5, constant:.1 },
+                    release: nodeInfo.param.release || { value: 0.0000001, duration: .5, constant:.1 }
                 }
             default:
                 throw new Error(`${nodeInfo.type} n'est pas supporté`)

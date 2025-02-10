@@ -81,9 +81,9 @@ const availableNodes = [
   { type: 'gain', label: 'Gain', params: { gain: 0.25 } },
   { type: 'adsr', label: 'ADSR', params: {
     start: { value: .25 },
-    attack: { value: 0.7, duration: .025},
-    decay: { value: 0.5, duration: .25},
-    sustain: { value: 0.45, duration: .5},
+    attack: { value: 0.7, duration: .025, constant: .1 },
+    decay: { value: 0.5, duration: .25, constant: .1},
+    sustain: { value: 0.45, duration: .5, constant: .1},
     release: { value: 0, duration: .25, constant: .1},
   }},
   { type: 'destination', label: 'Sortie Audio', special: true },

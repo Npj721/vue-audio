@@ -72,52 +72,52 @@
               <tr>
                 <td>ATK</td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.attack.value">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.attack.value">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.attack.duration">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.attack.duration">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.attack.constant">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.attack.constant">
                 </td>
               </tr>
 
               <tr>
                 <td>DCY</td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.decay.value">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.decay.value">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.decay.duration">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.decay.duration">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.decay.constant">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.decay.constant">
                 </td>
               </tr>
 
               <tr>
                 <td>SUS</td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.sustain.value">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.sustain.value">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.sustain.duration">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.sustain.duration">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.sustain.constant">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.sustain.constant">
                 </td>
               </tr>
 
               <tr>
                 <td>RLE</td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.release.value">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.release.value">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.release.duration">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.release.duration">
                 </td>
                 <td>
-                  <input type="number" step="0.01" v-model="selectedNode.param.release.constant">
+                  <input type="number" step="0.0001" v-model="selectedNode.param.release.constant">
                 </td>
               </tr>
             </tbody>
