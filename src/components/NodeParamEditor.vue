@@ -60,6 +60,76 @@
           <input id='param-input-gain' type="number" step="0.01"  v-model="selectedNode.param.gain">
         </div>
 
+        <div v-if="selectedNode.type === 'adsr'">
+          <h3>ADSR</h3>
+          <label :for="'param-input-start'">Start</label>
+          <input id='param-input-start' type="number" step="0.01"  v-model="selectedNode.param.start.value">
+
+          <table>
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Valeur</th>
+                <th>Durée</th>
+                <th>Constante</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ATK</td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.attack.value">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.attack.duration">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.attack.constant">
+                </td>
+              </tr>
+
+              <tr>
+                <td>DCY</td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.decay.value">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.decay.duration">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.decay.constant">
+                </td>
+              </tr>
+
+              <tr>
+                <td>SUS</td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.sustain.value">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.sustain.duration">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.sustain.constant">
+                </td>
+              </tr>
+
+              <tr>
+                <td>RLE</td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.release.value">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.release.duration">
+                </td>
+                <td>
+                  <input type="number" step="0.01" v-model="selectedNode.param.release.constant">
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
 
 
         <!--<label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>
