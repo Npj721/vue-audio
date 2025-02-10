@@ -558,8 +558,9 @@ onUnmounted(() => {
             v-for="config in storeAudio.synthConfigurations" 
             :key="config.id"
             class="synth-config-item"
+             @click="loadConfiguration(config.id)"
           >
-            <span>{{ config.name }}</span>
+            <div class="action-lib" >{{ config.name }}</div>
             <button 
               class="action-button load-button"
               @click="loadConfiguration(config.id)"
@@ -670,7 +671,11 @@ onUnmounted(() => {
 }
 
 .action-button {
-  width: '64px';
+  background: #0d3503;
+}
+
+.action-lib {
+  width: 20%;
   border: none;
   color: white;
   cursor: pointer;
@@ -708,6 +713,7 @@ onUnmounted(() => {
 }
 
 .load-button {
+  width: 60%;
   background: #0d3503;
   font-size: 0.75em;
 }
@@ -717,6 +723,7 @@ onUnmounted(() => {
 }
 
 .delete-button {
+  width: 20%;
   background: #790808;
   font-size: 0.75em;
 }
