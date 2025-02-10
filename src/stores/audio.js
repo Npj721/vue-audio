@@ -259,9 +259,13 @@ export const useAudioStore = defineStore('audio', () => {
 
             case 'gain':
                 const gain = _audioContext.value.createGain()
-                // Set initial gain value from the node parameters
                 gain.gain.value = nodeInfo.param.gain || 0
                 return gain
+
+            case 'delay':
+                const delay = _audioContext.value.createDelay()
+                delay.delayTime.value = nodeInfo.param.delay || .5
+                return delay
 
             case 'adsr':
                 return {

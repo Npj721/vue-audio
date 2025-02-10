@@ -124,6 +124,13 @@
           </table>
         </div>
 
+        <div v-if="selectedNode.type === 'delay'">
+          <h3>Gain</h3>
+          <label :for="'param-input-delay'">Delay</label>
+          <input id='param-input-delay' type="number" step="0.01"  v-model="selectedNode.param.delay">
+        </div>
+
+
 
 
         <!--<label :for="'param-' + selectedNode.type">{{ selectedNode.label }} Parameters:</label>

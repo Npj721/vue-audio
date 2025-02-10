@@ -88,6 +88,7 @@ const availableNodes = [
   }},
   { type: 'destination', label: 'Sortie Audio', special: true },
   { type: 'mod', label: 'Modulateur', params: { type: 'square', detune: 0, freq: 10, gain: 150 } },
+  { type: 'delay', label: 'Delay', params: {delay: .1 } },
 
 ]
 
@@ -243,6 +244,27 @@ function finishConnecting(node, event) {
     createConnection(connectingFrom.value, node)
   }
   else if (connectingFrom.value.type === 'mod' && node.type === 'adsr') {
+    console.log('connection mod vers adsr', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
+  else if (connectingFrom.value.type === 'delay' && node.type === 'gain') {
+    console.log('connection mod vers adsr', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
+  else if (connectingFrom.value.type === 'gain' && node.type === 'delay') {
+    console.log('connection mod vers adsr', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
+  else if (connectingFrom.value.type === 'gain' && node.type === 'gain') {
     console.log('connection mod vers adsr', { connectingFrom, node})
     const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
     storeAudio.connectNodes(sourceIndex, targetIndex)
@@ -487,7 +509,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  {{ storeAudio.nodes }}
+  <div v-for="node in storeAudio.nodes" :key="node">
+    <div>
+      {{ node }}
+    </div>
+  </div>
+  
   <div v-if="false">
     <BoardSynth></BoardSynth>
   </div>
