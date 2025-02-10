@@ -5,17 +5,17 @@
         <div v-if="selectedNode.type === 'osc'">
           <h3>Osc</h3>
           <label :for="'param-input-type'">Type</label>
-          <select id="param-input-type">
-            <option :selected="selectedNode.param.type === 'sine'">
+          <select id="param-input-type" v-model="selectedNode.param.type">
+            <option :selected="selectedNode.param.type === 'sine'" value="sine">
               Sine
             </option>
-            <option :selected="selectedNode.param.type === 'triangle'">
+            <option :selected="selectedNode.param.type === 'triangle'" value="triangle">
               Triangle
             </option>
-            <option :selected="selectedNode.param.type === 'square'">
+            <option :selected="selectedNode.param.type === 'square'" value="square">
               Square
             </option>
-            <option :selected="selectedNode.param.type === 'sawtooth'">
+            <option :selected="selectedNode.param.type === 'sawtooth'" value="sawtooth">
               Sawtooth
             </option>
           </select>
@@ -24,19 +24,19 @@
         </div>
 
         <div v-if="selectedNode.type === 'mod'">
-          <h3>Osc</h3>
+          <h3>Mod</h3>
           <label :for="'param-input-type'">Type</label>
-          <select id="param-input-type">
-            <option :selected="selectedNode.param.type === 'sine'">
+          <select id="param-input-type" v-model="selectedNode.param.type">
+            <option :selected="selectedNode.param.type === 'sine'" value="sine">
               Sine
             </option>
-            <option :selected="selectedNode.param.type === 'triangle'">
+            <option :selected="selectedNode.param.type === 'triangle'" value="triangle">
               Triangle
             </option>
-            <option :selected="selectedNode.param.type === 'square'">
+            <option :selected="selectedNode.param.type === 'square'" value="square">
               Square
             </option>
-            <option :selected="selectedNode.param.type === 'sawtooth'">
+            <option :selected="selectedNode.param.type === 'sawtooth'" value="sawtooth">
               Sawtooth
             </option>
           </select>
