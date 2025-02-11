@@ -284,6 +284,12 @@ function finishConnecting(node, event) {
     storeAudio.connectNodes(sourceIndex, targetIndex)
     connectingFrom.value.connections.push(node.id)
     createConnection(connectingFrom.value, node)
+  }else if (connectingFrom.value.type === 'mod' && node.type === 'superosc') {
+    console.log('connection mod vers superosc', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
   }
   
   if (tempLine) {
