@@ -543,7 +543,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-for="node in storeAudio.nodes" :key="node">
+  <div v-for="node in storeAudio.nodes" :key="node" v-show="false">
     <div>
       {{ node }}
     </div>
