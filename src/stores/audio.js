@@ -472,44 +472,84 @@ export const useAudioStore = defineStore('audio', () => {
             const frequencyNodes = playingNodes.value[frequency].filter(n => n.configId === configId)
             
             frequencyNodes.forEach(({ audioNodes }) => {
+                // Track which oscillators are connected to gains with ADSR
+                const oscillatorsWithADSR = new Set()
+                const superOscWithADSR = new Set()
+                
+                // First pass: identify oscillators connected to gains with ADSR
+                audioNodes.forEach(({ node: sourceNode, info: sourceInfo }) => {
+                    if ((sourceInfo.type === 'osc' || sourceInfo.type === 'superosc') && sourceInfo.connections) {
+                        sourceInfo.connections.forEach(destId => {
+                            const destNodeInfo = audioNodes.get(destId)
+                            if (destNodeInfo && destNodeInfo.info.type === 'gain' && destNodeInfo.info.envelope) {
+                                if (sourceInfo.type === 'osc') {
+                                    oscillatorsWithADSR.add(sourceInfo.id)
+                                } else if (sourceInfo.type === 'superosc') {
+                                    superOscWithADSR.add(sourceInfo.id)
+                                }
+                            }
+                        })
+                    }
+                })
+
+                // Handle gain nodes and their envelopes
                 audioNodes.forEach(({ node, info }) => {
                     if (info.type === 'gain') {
                         if (info.envelope) {
-                            // If there's an envelope, use its release
                             const envelopeInfo = audioNodes.get(info.envelope)
                             if (envelopeInfo) {
                                 const env = envelopeInfo.node
+                                const releaseTime = env.release.duration || 0.1
+                                
                                 node.gain.cancelScheduledValues(currentTime)
-                                node.gain.setTargetAtTime(0, currentTime, env.release.constant || 0.1)
+                                node.gain.setTargetAtTime(0, currentTime + releaseTime, env.release.constant || 0.1)
+
+                                // Schedule oscillator stops after release time
+                                audioNodes.forEach(({ node: srcNode, info: srcInfo }) => {
+                                    if (srcInfo.type === 'osc' && oscillatorsWithADSR.has(srcInfo.id)) {
+                                        setTimeout(() => {
+                                            srcNode.stop()
+                                        }, (delay + releaseTime * 2) * 1000)
+                                    } else if (srcInfo.type === 'superosc' && superOscWithADSR.has(srcInfo.id)) {
+                                        setTimeout(() => {
+                                            srcNode.oscillators.forEach(osc => osc.stop())
+                                        }, (delay + releaseTime * 2) * 1000)
+                                    }
+                                })
                             }
                         } else {
-                            // If no envelope, ramp to zero quickly
+                            // For gains without envelope, quick fade out
                             node.gain.cancelScheduledValues(currentTime)
                             node.gain.setTargetAtTime(0, currentTime, 0.01)
                         }
                     }
                 })
 
-                setTimeout(() => {
-                    audioNodes.forEach(({ node, info }) => {
-                        if (info.type === 'osc') {
-                            console.log('osc stopped ! ', { node, info })
+                // Stop oscillators not connected to ADSR gains immediately
+                audioNodes.forEach(({ node, info }) => {
+                    if (info.type === 'osc' && !oscillatorsWithADSR.has(info.id)) {
+                        setTimeout(() => {
                             node.stop()
-                        }else if (info.type === 'superosc') {
+                        }, delay * 1000)
+                    } else if (info.type === 'superosc' && !superOscWithADSR.has(info.id)) {
+                        setTimeout(() => {
                             node.oscillators.forEach(osc => osc.stop())
-                        }
-                    })
-                }, (delay + 0.1) * 1000) // Shorter delay for cleaner release
-            })
-
-            setTimeout(() => {
-                if (playingNodes.value[frequency]) {
-                    playingNodes.value[frequency] = playingNodes.value[frequency].filter(n => n.configId !== configId)
-                    if (playingNodes.value[frequency].length === 0) {
-                        delete playingNodes.value[frequency]
+                        }, delay * 1000)
                     }
-                }
-            }, (delay + 0.2) * 1000)
+                })
+                const maxReleaseTime = Math.max(...Array.from(audioNodes.values())
+                    .filter(({ info }) => info.type === 'adsr')
+                    .map(({ node }) => node.release.duration || 0.1))
+
+                setTimeout(() => {
+                    if (playingNodes.value[frequency]) {
+                        playingNodes.value[frequency] = playingNodes.value[frequency].filter(n => n.configId !== configId)
+                        if (playingNodes.value[frequency].length === 0) {
+                            delete playingNodes.value[frequency]
+                        }
+                    }
+                }, (delay + maxReleaseTime * 2 ) * 1000)
+            })
         }
     }
 
