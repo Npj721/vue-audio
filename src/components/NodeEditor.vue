@@ -95,6 +95,12 @@ const availableNodes = [
     maskGain: '0.3;0.3;0.3',
     maskType: 'triangle;triangle;triangle'
   }},
+  { type: 'superosc', label: 'Super SAW', params: { 
+    nombre: 7,
+    maskDetune: '-12, -7, -3, 0, 3, 7, 12',
+    maskGain: '0.14;0.14;0.14;0.14;0.14;0.14;0.14',
+    maskType: 'sawtooth;sawtooth;sawtooth;sawtooth;sawtooth;sawtooth;sawtooth'
+  }},
 ]
 
 const searchSynth = ref('')
@@ -286,6 +292,13 @@ function finishConnecting(node, event) {
     createConnection(connectingFrom.value, node)
   }else if (connectingFrom.value.type === 'mod' && node.type === 'superosc') {
     console.log('connection mod vers superosc', { connectingFrom, node})
+    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
+    storeAudio.connectNodes(sourceIndex, targetIndex)
+    connectingFrom.value.connections.push(node.id)
+    createConnection(connectingFrom.value, node)
+  }
+  else if (connectingFrom.value.type === 'gain' && node.type === 'osc') {
+    console.log('connection osc vers osc', { connectingFrom, node})
     const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
     storeAudio.connectNodes(sourceIndex, targetIndex)
     connectingFrom.value.connections.push(node.id)

@@ -374,6 +374,12 @@ export const useAudioStore = defineStore('audio', () => {
                             else if (info.type === 'superosc') {
                                 node.gains.forEach(gain => gain.connect(destNode.node))
                             }
+                            else if (info.type === 'gain' && destNode.info.type === 'osc') {
+                                node.connect(destNode.node.frequency)
+                            }
+                            else if (info.type === 'gain' && destNode.info.type === 'gain') {
+                                node.connect(destNode.node)
+                            }
                             else{
                                 node.connect(destNode.node)
                             }
