@@ -89,6 +89,12 @@ const availableNodes = [
   { type: 'destination', label: 'Sortie Audio', special: true },
   { type: 'mod', label: 'Modulateur', params: { type: 'square', detune: 0, freq: 10, gain: 150 } },
   { type: 'delay', label: 'Delay', params: {delay: .1 } },
+  { type: 'filter', label: 'Filtre', params: { 
+    type: 'lowpass',
+    frequency: 1000,
+    Q: 1,
+    gain: 0
+  }},
   { type: 'superosc', label: 'Super Oscillateur', params: { 
     nombre: 3,
     maskDetune: '-1200;0;1200',
@@ -214,103 +220,54 @@ function updateTempLine(event) {
 }
 
 function finishConnecting(node, event) {
-  event.stopPropagation()
+  event.stopPropagation();
+
   if (!connectingFrom.value || connectingFrom.value === node) {
     if (tempLine) {
-      tempLine.remove()
-      tempLine = null
+      tempLine.remove();
+      tempLine = null;
     }
-    connectingFrom.value = null
-    return
+    connectingFrom.value = null;
+    return;
   }
-  
-  const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id)
 
-  console.log('finishConnection', { connectingFrom, node})
+  const sourceIndex = storeAudio.nodes.findIndex(n => n.id === connectingFrom.value.id);
+  const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id);
   
   if (node.type === 'destination') {
-    storeAudio.connectToDestination(sourceIndex)
-    connectingFrom.value.connections.push('destination')
-    createConnection(connectingFrom.value, node)
-  } else if (node.type === 'adsr' && connectingFrom.value.type === 'gain') {
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectGainToEnveloppe(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  } else if (connectingFrom.value.type === 'osc' && node.type === 'gain') {
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  } else if (connectingFrom.value.type === 'mod' && node.type === 'osc') {
-    console.log('connection mod vers osc', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'mod' && node.type === 'mod') {
-    console.log('connection mod vers mod', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'mod' && node.type === 'adsr') {
-    console.log('connection mod vers adsr', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'delay' && node.type === 'gain') {
-    console.log('connection mod vers adsr', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'gain' && node.type === 'delay') {
-    console.log('connection mod vers adsr', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'gain' && node.type === 'gain') {
-    console.log('connection gain vers gain', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'superosc' && node.type === 'gain') {
-    console.log('connection superosc vers gain', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }else if (connectingFrom.value.type === 'mod' && node.type === 'superosc') {
-    console.log('connection mod vers superosc', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
-  }
-  else if (connectingFrom.value.type === 'gain' && node.type === 'osc') {
-    console.log('connection osc vers osc', { connectingFrom, node})
-    const targetIndex = storeAudio.nodes.findIndex(n => n.id === node.id)
-    storeAudio.connectNodes(sourceIndex, targetIndex)
-    connectingFrom.value.connections.push(node.id)
-    createConnection(connectingFrom.value, node)
+    storeAudio.connectToDestination(sourceIndex);
+    connectingFrom.value.connections.push('destination');
+  } else if (connectingFrom.value.type === 'gain' && node.type === 'adsr') {
+    storeAudio.connectGainToEnveloppe(sourceIndex, targetIndex);
+    connectingFrom.value.connections.push(node.id);
+  } else {
+    const connectionMap = {
+      'gain': ['osc', 'delay', 'filtre', 'gain', 'destination'],
+      'mod': ['osc', 'mod', 'adsr', 'superosc'],
+      'osc': ['gain'],
+      'superosc': ['gain'],
+      'delay': ['gain'],
+      'filtre': ['destination']
+    };
+
+    if (connectionMap[connectingFrom.value.type]?.includes(node.type)) {
+      storeAudio.connectNodes(sourceIndex, targetIndex);
+      connectingFrom.value.connections.push(node.id);
+    }
   }
   
+  createConnection(connectingFrom.value, node);
+
   if (tempLine) {
-    tempLine.remove()
-    tempLine = null
+    tempLine.remove();
+    tempLine = null;
   }
-  connectingFrom.value = null
+  connectingFrom.value = null;
 }
+
+
+
+
 
 function createConnection(fromNode, toNode) {
   if (!LeaderLine || !fromNode || !toNode) return
@@ -340,7 +297,9 @@ function createConnection(fromNode, toNode) {
   
   // Add right-click event listener to the line element
   setTimeout(() => {
+    console.log('timeout', { line, element: line.element })
     if (line.element) {
+      console.log('delete added')
       line.element.addEventListener('contextmenu', (e) => {
         e.preventDefault()
         deleteConnection(connection)

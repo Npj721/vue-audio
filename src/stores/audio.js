@@ -301,6 +301,14 @@ export const useAudioStore = defineStore('audio', () => {
                     sustain: nodeInfo.param.sustain || { value: 0.45, duration: .5, constant:.1 },
                     release: nodeInfo.param.release || { value: 0.0000001, duration: .5, constant:.1 }
                 }
+            case 'filter':
+                    const filter = _audioContext.value.createBiquadFilter()
+                    filter.type = nodeInfo.param.type || 'lowpass'
+                    filter.frequency.value = nodeInfo.param.frequency || 1000
+                    filter.Q.value = nodeInfo.param.Q || 1
+                    filter.gain.value = nodeInfo.param.gain || 0
+            return filter
+
             default:
                 throw new Error(`${nodeInfo.type} n'est pas supporté`)
         }
@@ -354,22 +362,15 @@ export const useAudioStore = defineStore('audio', () => {
                                 })
                             }else if(info.type === 'mod' && destNode.info.type === 'mod'){
                                 node.gain.connect(destNode.node.osc.frequency)
-                            }else if(info.type === 'mod' && destNode.info.type === 'adsr'){
-                                /*node.envelope = destId
-                                node.tamaman = 'salope'*/
-                                
-                                const env = destNode.info.param
-                                
-                                
+                            }else if(info.type === 'mod' && destNode.info.type === 'adsr'){                   
+                                const env = destNode.info.param                  
                                 console.log('mod <> adsr', { node, destNode, env, start: env.start.value })
-
                                 node.gain.gain.cancelScheduledValues(currentTime)
                                 node.gain.gain.setValueAtTime(env.start.value , currentTime)
                                 node.gain.gain.setTargetAtTime(env.attack.value , currentTime + env.attack.duration, env.attack.constant || .1)
                                 node.gain.gain.setTargetAtTime(env.decay.value , currentTime + env.attack.duration + env.decay.duration, env.decay.constant || .1)
                                 node.gain.gain.setTargetAtTime(env.sustain.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration, env.sustain.constant || .1)
-                                node.gain.gain.setTargetAtTime(env.release.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)
-                                
+                                node.gain.gain.setTargetAtTime(env.release.value , currentTime + env.attack.duration + env.decay.duration + env.sustain.duration + env.release.duration, env.release.constant || .1)   
                             }
                             else if (info.type === 'superosc') {
                                 node.gains.forEach(gain => gain.connect(destNode.node))
@@ -509,11 +510,11 @@ export const useAudioStore = defineStore('audio', () => {
                                     if (srcInfo.type === 'osc' && oscillatorsWithADSR.has(srcInfo.id)) {
                                         setTimeout(() => {
                                             srcNode.stop()
-                                        }, (delay + releaseTime * 2) * 1000)
+                                        }, (delay + releaseTime + 2) * 1000)
                                     } else if (srcInfo.type === 'superosc' && superOscWithADSR.has(srcInfo.id)) {
                                         setTimeout(() => {
                                             srcNode.oscillators.forEach(osc => osc.stop())
-                                        }, (delay + releaseTime * 2) * 1000)
+                                        }, (delay + releaseTime + 2) * 1000)
                                     }
                                 })
                             }
