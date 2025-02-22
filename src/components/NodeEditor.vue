@@ -101,12 +101,6 @@ const availableNodes = [
     maskGain: '0.3;0.3;0.3',
     maskType: 'triangle;triangle;triangle'
   }},
-  { type: 'superosc', label: 'Super SAW', params: { 
-    nombre: 7,
-    maskDetune: '-12, -7, -3, 0, 3, 7, 12',
-    maskGain: '0.14;0.14;0.14;0.14;0.14;0.14;0.14',
-    maskType: 'sawtooth;sawtooth;sawtooth;sawtooth;sawtooth;sawtooth;sawtooth'
-  }},
 ]
 
 const searchSynth = ref('')
